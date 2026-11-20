@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 闪电：呼应 LitLink 的“连接/加速” -->
+    <path
+        android:fillColor="#3D7EFF"
+        android:pathData="M59,29 L40,58 L52,58 L47,79 L68,48 L55,48 Z" />
+</vector>
