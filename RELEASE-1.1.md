@@ -1,4 +1,6 @@
-# LitLink 1.1
+# 轻连 1.1
+
+Display name: 轻连 (package io.ghx.vpn unchanged, versionName 1.1, versionCode 2). The launcher label, in-app title, settings preview, About version row, VPN notification title/session and generated group-name suffix now use the new name. Internal log tags, HTTP User-Agent and resource/style identifiers keep their original ASCII names for compatibility.
 
 Android 7.0+ (minSdk 24, targetSdk 35), arm64-v8a. Native core/JNI and previously fixed TUN IPv4 /30 contract are unchanged.
 

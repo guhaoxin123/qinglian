@@ -182,7 +182,7 @@ public class MainActivity extends BaseActivity {
 
         // 顶栏
         LinearLayout head = Ui.row(this);
-        TextView title = Ui.text(this, "LitLink", 23f, Ui.TEXT);
+        TextView title = Ui.text(this, "轻连", 23f, Ui.TEXT);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setLetterSpacing(-0.02f);
         head.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

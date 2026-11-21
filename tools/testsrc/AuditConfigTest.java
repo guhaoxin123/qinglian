@@ -85,13 +85,13 @@ public final class AuditConfigTest {
         }
         String collisions = proxies + "proxy-groups:\n"
                 + "  - {name: '节点选择', type: select, proxies: ['inline, node']}\n"
-                + "  - {name: '节点选择 (LitLink 1)', type: select, proxies: ['inline, node']}\n"
+                + "  - {name: '节点选择 (轻连 1)', type: select, proxies: ['inline, node']}\n"
                 + "  - {name: '自动选择', type: select, proxies: ['inline, node']}\n"
                 + "rules:\n  - DOMAIN,example.invalid,节点选择\n  - MATCH,节点选择\n";
         String selector = ConfigBuilder.selectionGroupName(collisions);
         String automatic = ConfigBuilder.autoGroupName(collisions);
-        check(selector.equals("节点选择 (LitLink 2)"), "Selector collision suffix skips occupied names");
-        check(automatic.equals("自动选择 (LitLink 1)"), "Auto collision resolved");
+        check(selector.equals("节点选择 (轻连 2)"), "Selector collision suffix skips occupied names");
+        check(automatic.equals("自动选择 (轻连 1)"), "Auto collision resolved");
         check(selector.equals(ConfigBuilder.selectionGroupName(collisions)), "Names deterministic");
         String out = build(collisions, ConfigBuilder.MODE_RULE);
         check(out.contains("DOMAIN,example.invalid,节点选择"), "Original group references retained");

@@ -224,7 +224,7 @@ public final class ColorPickerDialog extends Dialog {
         previewCaption = label(t("实时预览", "Live preview"));
         previewCaption.setPadding(0, Ui.dp(getContext(), 14), 0, Ui.dp(getContext(), 8));
         box.addView(previewCaption);
-        preview = Ui.text(getContext(), t("LitLink · 按钮预览", "LitLink · Button preview"), 15f, Ui.TEXT);
+        preview = Ui.text(getContext(), t("轻连 · 按钮预览", "轻连 · Button preview"), 15f, Ui.TEXT);
         preview.setGravity(Gravity.CENTER);
         preview.setPadding(Ui.dp(getContext(), 12), Ui.dp(getContext(), 16), Ui.dp(getContext(), 12), Ui.dp(getContext(), 16));
         box.addView(preview, new LinearLayout.LayoutParams(

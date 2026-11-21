@@ -127,7 +127,7 @@ public class TunnelService extends VpnService implements Runnable {
             // 3. 建立 VPN 接口
             Log.i("正在建立 VPN 接口…");
             Builder b = new Builder();
-            b.setSession("LitLink");
+            b.setSession("轻连");
             b.setMtu(MTU);
             b.addAddress(TUN_ADDR4, TUN_PREFIX4);
             b.addDnsServer(TUN_DNS);
@@ -289,7 +289,7 @@ public class TunnelService extends VpnService implements Runnable {
         Notification.Builder b;
         if (Build.VERSION.SDK_INT >= 26) b = new Notification.Builder(this, CH_ID);
         else b = new Notification.Builder(this);
-        b.setContentTitle("LitLink")
+        b.setContentTitle("轻连")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)

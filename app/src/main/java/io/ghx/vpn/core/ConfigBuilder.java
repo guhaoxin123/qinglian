@@ -54,13 +54,13 @@ public final class ConfigBuilder {
 
     private static String unusedName(String preferred, Set<String> occupied) {
         String name = preferred;
-        for (int i = 1; occupied.contains(name); i++) name = preferred + " (LitLink " + i + ")";
+        for (int i = 1; occupied.contains(name); i++) name = preferred + " (轻连 " + i + ")";
         return name;
     }
 
     public String build() {
         StringBuilder sb = new StringBuilder(4096);
-        sb.append("# LitLink 配置（自动生成）\n");
+        sb.append("# 轻连 配置（自动生成）\n");
         sb.append("mixed-port: ").append(mixedPort).append('\n');
         sb.append("allow-lan: ").append(allowLan).append('\n');
         sb.append("bind-address: ").append(allowLan ? "'*'" : "'127.0.0.1'").append('\n');

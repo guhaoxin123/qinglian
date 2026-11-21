@@ -148,7 +148,7 @@ public class SettingsActivity extends BaseActivity {
                 swatchRow, new View.OnClickListener() {
                     @Override public void onClick(View v) { showPalette(null); }
                 }));
-        TextView preview = Ui.text(this, t("配色预览 · LitLink", "Palette preview · LitLink"), 14f, Ui.ON_ACCENT);
+        TextView preview = Ui.text(this, t("配色预览 · 轻连", "Palette preview · 轻连"), 14f, Ui.ON_ACCENT);
         preview.setTextColor(Ui.ON_ACCENT);
         preview.setGravity(Gravity.CENTER);
         preview.setMinHeight(Ui.dp(this, 48));
@@ -198,7 +198,7 @@ public class SettingsActivity extends BaseActivity {
 
         root.addView(section(t("关于", "About")));
         root.addView(item(t("内核版本", "Core version"), "mihomo", value(Session.coreVersion()), null));
-        root.addView(item(t("应用版本", "App version"), "LitLink", value(appVersion()), null));
+        root.addView(item(t("应用版本", "App version"), "轻连", value(appVersion()), null));
         root.addView(item(t("捐赠支持", "Support development"),
                 t("请作者喝杯咖啡 · 微信赞赏", "Buy the author a coffee · WeChat donation"),
                 value(t("赞赏", "Donate")), new View.OnClickListener() {
@@ -307,12 +307,12 @@ public class SettingsActivity extends BaseActivity {
         box.setPadding(Ui.dp(this, 18), Ui.dp(this, 18), Ui.dp(this, 18), Ui.dp(this, 14));
         box.setBackground(Ui.stroke(this, Ui.CARD, Ui.LINE, 24f, 1f));
         scroll.addView(box);
-        TextView title = Ui.text(this, t("赞赏支持", "Support LitLink"), 18f, Ui.TEXT);
+        TextView title = Ui.text(this, t("赞赏支持", "Support 轻连"), 18f, Ui.TEXT);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         box.addView(title);
-        TextView sub = Ui.text(this, t("如果 LitLink 帮到了你，可以扫码支持一下",
-                "If LitLink helps you, scan the code to support its development"), 12f, Ui.TEXT_DIM);
+        TextView sub = Ui.text(this, t("如果 轻连 帮到了你，可以扫码支持一下",
+                "If 轻连 helps you, scan the code to support its development"), 12f, Ui.TEXT_DIM);
         sub.setGravity(Gravity.CENTER_HORIZONTAL);
         sub.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 14));
         box.addView(sub);
