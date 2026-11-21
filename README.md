@@ -1,4 +1,4 @@
-# LitLink
+# 轻连 LitLink
 
 轻量级 Android 代理客户端，Clash 内核（mihomo）+ TUN 转发，支持 **Clash / Surfboard / v2rayNG** 三种订阅格式。
 
