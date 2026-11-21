@@ -171,7 +171,7 @@ public final class Session {
                         restoreSelection(app);
                         new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
                             @Override public void run() {
-                                android.widget.Toast.makeText(app, "节点切换失败，已恢复可用选择", android.widget.Toast.LENGTH_LONG).show();
+                                android.widget.Toast.makeText(app, io.ghx.vpn.ui.L10n.t(app, "节点切换失败，已恢复可用选择", "Node switch failed; restored an available selection"), android.widget.Toast.LENGTH_LONG).show();
                             }
                         });
                     }

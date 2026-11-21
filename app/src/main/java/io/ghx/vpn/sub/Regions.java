@@ -74,6 +74,13 @@ public final class Regions {
         return new String(Character.toChars(a)) + new String(Character.toChars(b));
     }
 
+    public static String label(String cc, boolean english) {
+        if (!english) return label(cc);
+        if (cc == null || cc.length() == 0) return "Other";
+        String name = new Locale("", cc.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.ENGLISH);
+        return name.length() == 0 ? cc : name;
+    }
+
     public static String label(String cc) {
         if (cc == null || cc.length() == 0) return "其他";
         for (int i = 0; i < TABLE.length; i++) {

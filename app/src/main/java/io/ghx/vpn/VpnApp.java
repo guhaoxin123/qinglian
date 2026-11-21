@@ -25,7 +25,7 @@ public class VpnApp extends Application {
                 else android.os.Process.killProcess(android.os.Process.myPid());
             }
         });
-        Log.i("应用启动 v1.0.0 sdk=" + android.os.Build.VERSION.SDK_INT
+        Log.i("应用启动 v1.1 sdk=" + android.os.Build.VERSION.SDK_INT
                 + " abi=" + android.os.Build.SUPPORTED_ABIS[0]);
         Bridge.attach(this);
         // 不从外部文件隐式执行调试任务或网络测试。

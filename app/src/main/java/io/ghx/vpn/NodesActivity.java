@@ -1,6 +1,5 @@
 package io.ghx.vpn;
 
-import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -32,11 +31,13 @@ import io.ghx.vpn.core.Session;
 import io.ghx.vpn.core.SubscriptionManager;
 import io.ghx.vpn.sub.Node;
 import io.ghx.vpn.sub.Regions;
+import io.ghx.vpn.ui.BaseActivity;
 import io.ghx.vpn.ui.Format;
+import io.ghx.vpn.ui.L10n;
 import io.ghx.vpn.ui.Ui;
 
 /** 节点：地区分页 + 双列紧凑列表 + 内核代理 HTTP 健康检查。 */
-public class NodesActivity extends Activity {
+public class NodesActivity extends BaseActivity {
 
     private static final String ALL = "__all__";
 
@@ -76,7 +77,8 @@ public class NodesActivity extends Activity {
         root.setPadding(p, Ui.dp(this, 24), p, 0);
 
         LinearLayout head = Ui.row(this);
-        TextView back = Ui.text(this, "‹", 22f, Ui.ACCENT);
+        TextView back = Ui.text(this, "‹", 22f, Ui.ACCENT_TEXT);
+        back.setContentDescription(L10n.t(this, "返回", "Back"));
         back.setPadding(0, 0, Ui.dp(this, 10), 0);
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -85,11 +87,11 @@ public class NodesActivity extends Activity {
             }
         });
         head.addView(back);
-        TextView t = Ui.text(this, "节点", 19f, Ui.TEXT);
+        TextView t = Ui.text(this, L10n.t(this, "节点", "Nodes"), 19f, Ui.TEXT);
         t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         head.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        testButton = Ui.text(this, "HTTP 测延迟", 13f, Ui.ACCENT);
+        testButton = Ui.text(this, L10n.t(this, "HTTP 测延迟", "HTTP latency"), 13f, Ui.ACCENT_TEXT);
         testButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -99,7 +101,7 @@ public class NodesActivity extends Activity {
         head.addView(testButton);
         root.addView(head);
 
-        countView = Ui.text(this, "加载中…", 11f, Ui.TEXT_DIM);
+        countView = Ui.text(this, L10n.t(this, "加载中…", "Loading…"), 11f, Ui.TEXT_DIM);
         countView.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 12));
         root.addView(countView);
 
@@ -114,7 +116,7 @@ public class NodesActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         EditText search = new EditText(this);
-        search.setHint("搜索节点");
+        search.setHint(L10n.t(this, "搜索节点", "Search nodes"));
         search.setSingleLine(true);
         search.setTextColor(Ui.TEXT);
         search.setHintTextColor(Ui.TEXT_DIM);
@@ -180,7 +182,8 @@ public class NodesActivity extends Activity {
                     public void run() {
                         if (destroyed || isFinishing()) return;
                         all = f;
-                        if (loadFailed) testStatus = "节点加载失败，请稍后重试";
+                        if (loadFailed) testStatus = L10n.t(NodesActivity.this,
+                                "节点加载失败，请稍后重试", "Could not load nodes. Try again later.");
                         renderTabs();
                         render();
                     }
@@ -211,12 +214,12 @@ public class NodesActivity extends Activity {
         if (testFuture != null) testFuture.cancel(true);
         testRequest = null;
         testFuture = null;
-        if (testing) testStatus = "HTTP 测试已取消";
+        if (testing) testStatus = L10n.t(this, "HTTP 测试已取消", "HTTP test cancelled");
         testing = false;
         testingNames.clear();
         if (testButton != null) {
             testButton.setEnabled(true);
-            testButton.setText("HTTP 测延迟");
+            testButton.setText(L10n.t(this, "HTTP 测延迟", "HTTP latency"));
         }
         if (!destroyed && grid != null) render();
     }
@@ -234,9 +237,9 @@ public class NodesActivity extends Activity {
         for (Map.Entry<String, Integer> e : counts.entrySet()) {
             final String key = e.getKey();
             boolean on = key.equals(region);
-            String label = ALL.equals(key) ? "全部 " + e.getValue()
-                    : Regions.label(key) + " " + e.getValue();
-            TextView chip = Ui.text(this, label, 12f, on ? 0xFFFFFFFF : Ui.TEXT_MID);
+            String label = ALL.equals(key) ? L10n.t(this, "全部 ", "All ") + e.getValue()
+                    : Regions.label(key, L10n.isEnglish(this)) + " " + e.getValue();
+            TextView chip = Ui.text(this, label, 12f, on ? Ui.ON_ACCENT : Ui.TEXT_MID);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(Ui.dp(this, 13), Ui.dp(this, 7), Ui.dp(this, 13), Ui.dp(this, 7));
             chip.setBackground(on ? Ui.gradient(this, Ui.ACCENT, Ui.ACCENT_2, 14f)
@@ -269,11 +272,14 @@ public class NodesActivity extends Activity {
                     && !n.server.toLowerCase(Locale.ROOT).contains(keyword)) continue;
             shown.add(n);
         }
-        String count = all.isEmpty() ? "还没有节点" : shown.size() + " / " + all.size() + " 个节点";
+        String count = all.isEmpty() ? L10n.t(this, "还没有节点", "No nodes yet")
+                : String.format(Locale.US, L10n.t(this, "%1$d / %2$d 个节点", "Nodes: %1$d / %2$d"),
+                        shown.size(), all.size());
         countView.setText(testStatus.length() == 0 ? count : count + "\n" + testStatus);
         if (shown.isEmpty()) {
-            TextView e = Ui.text(this, all.isEmpty() ? "当前配置没有解析到节点" : "没有匹配的节点",
-                    13f, Ui.TEXT_DIM);
+            TextView e = Ui.text(this, all.isEmpty()
+                    ? L10n.t(this, "当前配置没有解析到节点", "No nodes found in the current configuration")
+                    : L10n.t(this, "没有匹配的节点", "No matching nodes"), 13f, Ui.TEXT_DIM);
             e.setPadding(0, Ui.dp(this, 16), 0, 0);
             grid.addView(e);
             return;
@@ -319,17 +325,17 @@ public class NodesActivity extends Activity {
         top.addView(new View(this), new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (testingNames.contains(n.name)) {
-            top.addView(Ui.text(this, "测试中…", 10f, Ui.TEXT_DIM));
+            top.addView(Ui.text(this, L10n.t(this, "测试中…", "Testing…"), 10f, Ui.TEXT_DIM));
         } else if (ms != null) {
-            String label = ms == Latency.UNAVAILABLE ? "未完成" :
-                    (ms == Latency.FAILED ? "HTTP 失败" : Format.latency(ms));
+            String label = ms == Latency.UNAVAILABLE ? L10n.t(this, "未完成", "Incomplete") :
+                    (ms == Latency.FAILED ? L10n.t(this, "HTTP 失败", "HTTP failed") : Format.latency(this, ms));
             TextView lat = Ui.text(this, label, 10f, Format.latencyColor(ms));
             top.addView(lat);
         }
         c.addView(top);
 
         TextView name = Ui.text(this, cleanName(n.name), 12f,
-                selected ? Ui.ACCENT : Ui.TEXT);
+                selected ? Ui.ACCENT_TEXT : Ui.TEXT);
         name.setMaxLines(2);
         name.setPadding(0, Ui.dp(this, 5), 0, 0);
         c.addView(name);
@@ -343,10 +349,12 @@ public class NodesActivity extends Activity {
             public void onClick(View v) {
                 boolean ok = Session.select(NodesActivity.this, n.name);
                 if (ok) {
-                    Toast.makeText(NodesActivity.this, "已请求切换到 " + n.name,
+                    Toast.makeText(NodesActivity.this,
+                            L10n.t(NodesActivity.this, "已请求切换到 ", "Switch requested: ") + n.name,
                             Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(NodesActivity.this, "已记住该节点，连接后生效",
+                    Toast.makeText(NodesActivity.this, L10n.t(NodesActivity.this,
+                            "已记住该节点，连接后生效", "Node saved. It will be used when connected."),
                             Toast.LENGTH_SHORT).show();
                 }
                 render();
@@ -385,8 +393,9 @@ public class NodesActivity extends Activity {
         testing = true;
         testingNames.addAll(target);
         testButton.setEnabled(false);
-        testButton.setText("测试中…");
-        testStatus = "正在进行代理 HTTP 健康检查（内核测试整组，显示当前筛选结果）";
+        testButton.setText(L10n.t(this, "测试中…", "Testing…"));
+        testStatus = L10n.t(this, "正在进行代理 HTTP 健康检查（内核测试整组，显示当前筛选结果）",
+                "Checking proxy HTTP health (the core tests the whole group; only filtered results are shown)");
         render();
         testFuture = worker.submit(new Runnable() {
             @Override
@@ -401,13 +410,80 @@ public class NodesActivity extends Activity {
                         testRequest = null;
                         testFuture = null;
                         testButton.setEnabled(true);
-                        testButton.setText("HTTP 测延迟");
-                        testStatus = result.isCurrent() ? result.message : "配置已变更，测试结果已丢弃";
+                        testButton.setText(L10n.t(NodesActivity.this, "HTTP 测延迟", "HTTP latency"));
+                        testStatus = result.isCurrent() ? batchStatus(result) : L10n.t(NodesActivity.this,
+                                "配置已变更，测试结果已丢弃", "Configuration changed. Test results discarded.");
                         render();
                         Toast.makeText(NodesActivity.this, testStatus, Toast.LENGTH_LONG).show();
                     }
                 });
             }
         });
+    }
+
+    /** Translate only the app-owned Latency result protocol, never node names or unknown errors. */
+    private String batchStatus(Latency.BatchResult result) {
+        String message = result.message == null ? "" : result.message;
+        // Match the producer's exact summary; this raw text is not presented directly.
+        String originalSummary = "HTTP：成功 " + result.succeeded + "，失败 " + result.failed
+                + "，未取得结果 " + result.unavailable;
+        String summary = String.format(Locale.US, L10n.t(this,
+                "HTTP：成功 %1$d，失败 %2$d，未取得结果 %3$d",
+                "HTTP: %1$d succeeded, %2$d failed, %3$d without results"),
+                result.succeeded, result.failed, result.unavailable);
+        if (message.equals(originalSummary)) return summary;
+        String suffix = "\n" + originalSummary;
+        if (message.endsWith(suffix)) {
+            return batchReason(message.substring(0, message.length() - suffix.length())) + "\n" + summary;
+        }
+        return batchReason(message);
+    }
+
+    private String batchReason(String reason) {
+        switch (reason) {
+            case "此测试请求已使用，请重新测试":
+                return L10n.t(this, "此测试请求已使用，请重新测试", "Test request already used. Run a new test.");
+            case "HTTP 测试已取消":
+                return L10n.t(this, "HTTP 测试已取消", "HTTP test cancelled");
+            case "内核仍在处理上次 HTTP 测试，请稍后重试":
+                return L10n.t(this, "内核仍在处理上次 HTTP 测试，请稍后重试",
+                        "The core is still processing the previous HTTP test. Try again later.");
+            case "没有可测试的节点":
+                return L10n.t(this, "没有可测试的节点", "No nodes available to test");
+            case "内核正在切换配置，HTTP 测试未开始":
+                return L10n.t(this, "内核正在切换配置，HTTP 测试未开始",
+                        "The core is switching configurations. The HTTP test did not start.");
+            case "测试已取消或配置已变更":
+                return L10n.t(this, "测试已取消或配置已变更", "Test cancelled or configuration changed");
+            case "请先连接后测代理延迟（未启动 VPN，也未改用 TCP）":
+                return L10n.t(this, "请先连接后测代理延迟（未启动 VPN，也未改用 TCP）",
+                        "Connect before testing proxy latency (VPN was not started and TCP was not substituted)");
+            case "当前配置的 HTTP 测试组不含所选节点":
+                return L10n.t(this, "当前配置的 HTTP 测试组不含所选节点",
+                        "The current HTTP test group does not include the selected nodes");
+            case "内核 HTTP 测试尚未完成；未取得结果，不代表节点超时":
+                return L10n.t(this, "内核 HTTP 测试尚未完成；未取得结果，不代表节点超时",
+                        "The core HTTP test is not finished. No result does not mean the node timed out.");
+            case "内核无法完成 HTTP 测试；未取得节点结果":
+                return L10n.t(this, "内核无法完成 HTTP 测试；未取得节点结果",
+                        "The core could not finish the HTTP test; no node results were obtained");
+            case "内核返回的 HTTP 测试格式无法识别，未使用历史或 TCP 数据":
+                return L10n.t(this, "内核返回的 HTTP 测试格式无法识别，未使用历史或 TCP 数据",
+                        "Unrecognized HTTP test result format. Historical or TCP data was not used.");
+            case "HTTP 测试不可用：内核或配置未就绪":
+                return L10n.t(this, "HTTP 测试不可用：内核或配置未就绪",
+                        "HTTP test unavailable: the core or configuration is not ready");
+            case "HTTP 测试不可用：内核接口不兼容":
+                return L10n.t(this, "HTTP 测试不可用：内核接口不兼容",
+                        "HTTP test unavailable: incompatible core interface");
+            case "测试已取消或配置已变更，结果已丢弃":
+                return L10n.t(this, "测试已取消或配置已变更，结果已丢弃",
+                        "Test cancelled or configuration changed; results discarded");
+            case "部分节点无可确认结果（缺失、异常或未识别的状态）；不能视为成功":
+                return L10n.t(this, "部分节点无可确认结果（缺失、异常或未识别的状态）；不能视为成功",
+                        "Some nodes have no confirmed result (missing, invalid or unrecognized state); they cannot count as successful");
+            default:
+                return reason;
+        }
     }
 }

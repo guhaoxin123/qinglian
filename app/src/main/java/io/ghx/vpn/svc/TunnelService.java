@@ -26,6 +26,7 @@ import io.ghx.vpn.core.Prefs;
 import io.ghx.vpn.core.Session;
 import io.ghx.vpn.core.ProfileStore;
 import io.ghx.vpn.core.SubscriptionManager;
+import io.ghx.vpn.ui.L10n;
 
 /**
  * 隧道服务：建立 VpnService 并把 fd 交给内核，内核用 tun 接管流量。
@@ -94,7 +95,7 @@ public class TunnelService extends VpnService implements Runnable {
         }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
         if (worker != null && worker.isAlive()) return START_NOT_STICKY;
-        startForeground(NOTIFY_ID, buildNotification("正在启动…"));
+        startForeground(NOTIFY_ID, buildNotification(L10n.t(this, "正在启动…", "Starting…")));
         lastError = null;
         stopRequested = false;
         starting = true;
@@ -179,7 +180,8 @@ public class TunnelService extends VpnService implements Runnable {
             lastError = null;
             new Prefs(this).lastStartAt(System.currentTimeMillis());
             Log.i("VPN 接口已交给内核；尚未验证浏览器联网，耗时=" + (System.currentTimeMillis() - t0) + "ms");
-            notify("已连接 · " + nodeCount + " 个节点");
+            notify(L10n.t(this, "VPN 接口已建立 · ", "VPN interface ready · ")
+                    + nodeCount + L10n.t(this, " 个节点", " nodes"));
             Diag.dump(this, "connected");
 
             while (running) {
@@ -196,7 +198,7 @@ public class TunnelService extends VpnService implements Runnable {
                 String msg = t.getMessage();
                 lastError = msg == null ? String.valueOf(t) : msg;
                 Log.e("连接失败: " + lastError, t);
-                notify("连接失败：" + lastError);
+                notify(L10n.t(this, "连接失败：", "Connection failed: ") + L10n.message(this, lastError));
             }
         } finally {
             if (!locked) Session.CORE_LOCK.lock();
@@ -271,7 +273,8 @@ public class TunnelService extends VpnService implements Runnable {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
-        NotificationChannel ch = new NotificationChannel(CH_ID, "连接状态", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CH_ID,
+                L10n.t(this, "连接状态", "Connection status"), NotificationManager.IMPORTANCE_LOW);
         ch.setShowBadge(false);
         nm.createNotificationChannel(ch);
     }

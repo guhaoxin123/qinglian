@@ -1,6 +1,5 @@
 package io.ghx.vpn;
 
-import android.app.Activity;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -23,10 +22,12 @@ import java.util.Locale;
 import java.util.Set;
 
 import io.ghx.vpn.core.Prefs;
+import io.ghx.vpn.ui.BaseActivity;
+import io.ghx.vpn.ui.L10n;
 import io.ghx.vpn.ui.Ui;
 
 /** 排除 VPN 的应用：选中的应用直接走物理网络，不进隧道。 */
-public class BypassActivity extends Activity {
+public class BypassActivity extends BaseActivity {
 
     private final Handler ui = new Handler(Looper.getMainLooper());
 
@@ -58,7 +59,7 @@ public class BypassActivity extends Activity {
         root.setPadding(p, Ui.dp(this, 24), p, Ui.dp(this, 14));
 
         LinearLayout head = Ui.row(this);
-        TextView back = Ui.text(this, "‹ 返回", 15f, Ui.ACCENT);
+        TextView back = Ui.text(this, L10n.t(this, "‹ 返回", "‹ Back"), 15f, Ui.ACCENT_TEXT);
         back.setPadding(0, 0, Ui.dp(this, 14), 0);
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -67,20 +68,22 @@ public class BypassActivity extends Activity {
             }
         });
         head.addView(back);
-        TextView t = Ui.text(this, "排除的应用", 18f, Ui.TEXT);
+        TextView t = Ui.text(this, L10n.t(this, "排除的应用", "Excluded apps"), 18f, Ui.TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        countView = Ui.text(this, "0", 13f, Ui.ACCENT);
+        countView = Ui.text(this, L10n.t(this, "加载中…", "Loading…"), 13f, Ui.ACCENT_TEXT);
         head.addView(countView);
         root.addView(head);
 
-        TextView tip = Ui.text(this, "选中的应用不走 VPN，直接使用本机网络。改完需重新连接才生效。",
+        TextView tip = Ui.text(this, L10n.t(this,
+                "选中的应用不走 VPN，直接使用本机网络。改完需重新连接才生效。",
+                "Selected apps bypass the VPN and use the device network directly. Reconnect to apply changes."),
                 11f, Ui.TEXT_DIM);
         tip.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 10));
         root.addView(tip);
 
         EditText search = new EditText(this);
-        search.setHint("搜索应用");
+        search.setHint(L10n.t(this, "搜索应用", "Search apps"));
         search.setSingleLine(true);
         search.setTextColor(Ui.TEXT);
         search.setHintTextColor(Ui.TEXT_DIM);
@@ -164,11 +167,12 @@ public class BypassActivity extends Activity {
     private void render() {
         list.removeAllViews();
         if (apps.isEmpty()) {
-            list.addView(Ui.text(this, "读取应用列表失败", 13f, Ui.TEXT_DIM));
+            countView.setText(L10n.t(this, "读取失败", "Load failed"));
+            list.addView(Ui.text(this, L10n.t(this, "读取应用列表失败", "Could not load the app list"), 13f, Ui.TEXT_DIM));
             return;
         }
         Set<String> sel = prefs.bypassApps();
-        countView.setText("已选 " + sel.size());
+        countView.setText(L10n.t(this, "已选 ", "Selected: ") + sel.size());
         int shown = 0;
         for (int i = 0; i < apps.size(); i++) {
             final AppItem a = apps.get(i);
@@ -182,7 +186,7 @@ public class BypassActivity extends Activity {
             list.addView(row(a, sel.contains(a.pkg)));
         }
         if (shown == 0) {
-            list.addView(Ui.text(this, "没有匹配的应用", 13f, Ui.TEXT_DIM));
+            list.addView(Ui.text(this, L10n.t(this, "没有匹配的应用", "No matching apps"), 13f, Ui.TEXT_DIM));
         }
     }
 
@@ -193,13 +197,13 @@ public class BypassActivity extends Activity {
 
         LinearLayout texts = Ui.column(this);
         texts.addView(Ui.text(this, a.label, 14f, Ui.TEXT));
-        TextView meta = Ui.text(this, a.pkg + (a.system ? " · 系统" : ""), 10f, Ui.TEXT_DIM);
+        TextView meta = Ui.text(this, a.pkg + (a.system ? L10n.t(this, " · 系统", " · System") : ""), 10f, Ui.TEXT_DIM);
         meta.setPadding(0, Ui.dp(this, 2), 0, 0);
         texts.addView(meta);
         r.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView box = Ui.text(this, checked ? "✓ 已排除" : "排除", 12f,
-                checked ? Ui.ACCENT : Ui.TEXT_DIM);
+        TextView box = Ui.text(this, checked ? L10n.t(this, "✓ 已排除", "✓ Excluded")
+                : L10n.t(this, "排除", "Exclude"), 12f, checked ? Ui.ACCENT_TEXT : Ui.TEXT_DIM);
         box.setGravity(Gravity.CENTER_VERTICAL);
         r.addView(box);
 

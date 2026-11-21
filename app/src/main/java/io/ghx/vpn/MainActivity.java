@@ -1,6 +1,7 @@
 package io.ghx.vpn;
 
-import android.app.Activity;
+import io.ghx.vpn.ui.BaseActivity;
+import io.ghx.vpn.ui.L10n;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.net.VpnService;
@@ -30,7 +31,7 @@ import io.ghx.vpn.ui.Format;
 import io.ghx.vpn.ui.Ui;
 
 /** 首页：连接开关 / 模式 / 当前节点 / 出口 IP / 测速。 */
-public class MainActivity extends Activity {
+public class MainActivity extends BaseActivity {
 
     private static final int REQ_VPN = 100;
 
@@ -124,6 +125,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (isAppearanceRecreating()) return;
         stopped = false;
         refresh();
         connectivity = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
@@ -185,14 +187,14 @@ public class MainActivity extends Activity {
         title.setLetterSpacing(-0.02f);
         head.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView subsBtn = headerAction("订阅", new View.OnClickListener() {
+        TextView subsBtn = headerAction(L10n.t(this, "订阅", "Subscriptions"), new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, SubsActivity.class));
             }
         });
         head.addView(subsBtn);
-        TextView setBtn = headerAction("设置", new View.OnClickListener() {
+        TextView setBtn = headerAction(L10n.t(this, "设置", "Settings"), new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, SettingsActivity.class));
@@ -203,19 +205,19 @@ public class MainActivity extends Activity {
 
         // 主状态卡（渐变压顶）
         LinearLayout hero = Ui.column(this);
-        hero.setBackground(Ui.gradient(this, 0xFF1B2A4A, 0xFF121722, 20f));
+        hero.setBackground(Ui.gradient(this, Ui.CARD_2, Ui.CARD, 20f));
         int hp = Ui.dp(this, 18);
         hero.setPadding(hp, hp, hp, hp);
 
-        statusView = Ui.text(this, "未连接", 20f, Ui.TEXT);
+        statusView = Ui.text(this, L10n.t(this, "未连接", "Disconnected"), 20f, Ui.TEXT);
         statusView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         hero.addView(statusView);
 
-        statusSub = Ui.text(this, "点下方按钮开始使用", 12f, Ui.TEXT_MID);
+        statusSub = Ui.text(this, L10n.t(this, "点下方按钮开始使用", "Tap the button below to get started"), 12f, Ui.TEXT_MID);
         statusSub.setPadding(0, Ui.dp(this, 5), 0, Ui.dp(this, 16));
         hero.addView(statusSub);
 
-        toggleBtn = Ui.text(this, "连接", 15f, 0xFFFFFFFF);
+        toggleBtn = Ui.text(this, L10n.t(this, "连接", "Connect"), 15f, Ui.ON_ACCENT);
         toggleBtn.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         toggleBtn.setGravity(Gravity.CENTER);
         toggleBtn.setBackground(Ui.gradient(this, Ui.ACCENT, Ui.ACCENT_2, 13f));
@@ -230,7 +232,7 @@ public class MainActivity extends Activity {
         root.addView(hero);
         Ui.margin(this, hero, 0, 16, 0, 12);
 
-        // 主页主入口：添加订阅
+        // 主页主入口：管理订阅
         LinearLayout addSub = Ui.row(this);
         addSub.setGravity(Gravity.CENTER_VERTICAL);
         addSub.setMinimumHeight(Ui.dp(this, 76));
@@ -238,16 +240,18 @@ public class MainActivity extends Activity {
         addSub.setBackground(Ui.gradient(this, Ui.ACCENT, Ui.ACCENT_2, 16f));
         android.widget.ImageView addIcon = new android.widget.ImageView(this);
         addIcon.setImageResource(R.drawable.ic_add_subscription);
+        addIcon.setColorFilter(Ui.ON_ACCENT);
         addSub.addView(addIcon, new LinearLayout.LayoutParams(Ui.dp(this, 34), Ui.dp(this, 34)));
         LinearLayout addLabels = Ui.column(this);
         addLabels.setPadding(Ui.dp(this, 14), 0, 0, 0);
-        TextView addTitle = Ui.text(this, "管理订阅", 18f, 0xFFFFFFFF);
+        TextView addTitle = Ui.text(this, L10n.t(this, "管理订阅", "Manage subscriptions"), 18f, Ui.ON_ACCENT);
         addTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         addLabels.addView(addTitle);
-        addLabels.addView(Ui.text(this, "添加、更新与切换订阅", 12f, 0xDFFFFFFF));
+        addLabels.addView(Ui.text(this, L10n.t(this, "添加、更新与切换订阅", "Add, update and switch subscriptions"), 12f, Ui.ON_ACCENT));
         addSub.addView(addLabels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        addSub.addView(Ui.text(this, "›", 26f, 0xFFFFFFFF));
-        addSub.setContentDescription("管理订阅，添加、更新与切换订阅");
+        addSub.addView(Ui.text(this, "›", 26f, Ui.ON_ACCENT));
+        addSub.setContentDescription(L10n.t(this, "管理订阅，添加、更新与切换订阅",
+                "Manage subscriptions: add, update and switch subscriptions"));
         addSub.setFocusable(true);
         addSub.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -259,7 +263,7 @@ public class MainActivity extends Activity {
 
         // 模式
         LinearLayout modeCard = Ui.card(this);
-        modeCard.addView(Ui.text(this, "代理模式", 11f, Ui.TEXT_DIM));
+        modeCard.addView(Ui.text(this, L10n.t(this, "代理模式", "Proxy mode"), 11f, Ui.TEXT_DIM));
         modeRow = Ui.row(this);
         modeRow.setPadding(0, Ui.dp(this, 10), 0, 0);
         modeCard.addView(modeRow);
@@ -275,9 +279,9 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout nTop = Ui.row(this);
-        nTop.addView(Ui.text(this, "当前节点", 11f, Ui.TEXT_DIM),
+        nTop.addView(Ui.text(this, L10n.t(this, "当前节点", "Current node"), 11f, Ui.TEXT_DIM),
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        nTop.addView(Ui.text(this, "选择 ›", 11f, Ui.ACCENT));
+        nTop.addView(Ui.text(this, L10n.t(this, "选择 ›", "Select ›"), 11f, Ui.ACCENT_TEXT));
         nodeCard.addView(nTop);
 
         nodeNameView = Ui.text(this, "-", 15f, Ui.TEXT);
@@ -294,9 +298,9 @@ public class MainActivity extends Activity {
         // 网络检测（出口 IP / DNS）
         LinearLayout netCard = Ui.card(this);
         LinearLayout netHead = Ui.row(this);
-        netHead.addView(Ui.text(this, "网络检测", 11f, Ui.TEXT_DIM),
+        netHead.addView(Ui.text(this, L10n.t(this, "网络检测", "Network check"), 11f, Ui.TEXT_DIM),
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView refreshIp = Ui.text(this, "刷新", 11f, Ui.ACCENT);
+        TextView refreshIp = Ui.text(this, L10n.t(this, "刷新", "Refresh"), 11f, Ui.ACCENT_TEXT);
         refreshIp.setPadding(Ui.dp(this, 8), 0, 0, 0);
         refreshIp.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -317,7 +321,7 @@ public class MainActivity extends Activity {
 
         LinearLayout ipTexts = Ui.column(this);
         ipTexts.setPadding(Ui.dp(this, 10), 0, 0, 0);
-        ipAddrView = Ui.text(this, "检测中…", 15f, Ui.TEXT);
+        ipAddrView = Ui.text(this, L10n.t(this, "检测中…", "Checking…"), 15f, Ui.TEXT);
         ipAddrView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         ipTexts.addView(ipAddrView);
         ipMetaView = Ui.text(this, "", 11f, Ui.TEXT_DIM);
@@ -329,12 +333,13 @@ public class MainActivity extends Activity {
 
         netCard.addView(Ui.divider(this));
 
-        dnsView = Ui.text(this, "DNS 解析 · 未检测", 12f, Ui.TEXT_MID);
+        dnsView = Ui.text(this, L10n.t(this, "DNS 解析 · 未检测", "DNS resolution · Not checked"), 12f, Ui.TEXT_MID);
         netCard.addView(dnsView);
-        networkUpdateView = Ui.text(this, "自动更新 · 每10秒", 10f, Ui.TEXT_DIM);
+        networkUpdateView = Ui.text(this, L10n.t(this, "自动更新 · 每10秒", "Auto-refresh · Every 10 seconds"), 10f, Ui.TEXT_DIM);
         networkUpdateView.setPadding(0, Ui.dp(this, 8), 0, 0);
         netCard.addView(networkUpdateView);
-        TextView netScope = Ui.text(this, "仅检测本机/代理出口，不代表其他应用的 VPN 通路已验证", 10f, Ui.TEXT_DIM);
+        TextView netScope = Ui.text(this, L10n.t(this, "仅检测本机/代理出口，不代表其他应用的 VPN 通路已验证",
+                "Checks only this device or proxy egress; it does not verify other apps' VPN routes"), 10f, Ui.TEXT_DIM);
         netScope.setPadding(0, Ui.dp(this, 4), 0, 0);
         netCard.addView(netScope);
 
@@ -344,9 +349,9 @@ public class MainActivity extends Activity {
         // 测速
         LinearLayout speedCard = Ui.card(this);
         LinearLayout spHead = Ui.row(this);
-        spHead.addView(Ui.text(this, "速度测试", 11f, Ui.TEXT_DIM),
+        spHead.addView(Ui.text(this, L10n.t(this, "速度测试", "Speed test"), 11f, Ui.TEXT_DIM),
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView runSpeed = Ui.text(this, "开始", 11f, Ui.ACCENT);
+        TextView runSpeed = Ui.text(this, L10n.t(this, "开始", "Start"), 11f, Ui.ACCENT_TEXT);
         runSpeed.setPadding(Ui.dp(this, 8), 0, 0, 0);
         runSpeed.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -357,7 +362,7 @@ public class MainActivity extends Activity {
         spHead.addView(runSpeed);
         speedCard.addView(spHead);
 
-        speedView = Ui.text(this, "点「开始」完整测速（约 15 秒）", 12f, Ui.TEXT_MID);
+        speedView = Ui.text(this, L10n.t(this, "点「开始」完整测速（约 15 秒）", "Tap Start for a full speed test (about 15 seconds)"), 12f, Ui.TEXT_MID);
         speedView.setLineSpacing(Ui.dp(this, 3), 1f);
         speedView.setPadding(0, Ui.dp(this, 10), 0, 0);
         speedCard.addView(speedView);
@@ -384,7 +389,8 @@ public class MainActivity extends Activity {
     private void refreshMode() {
         modeRow.removeAllViews();
         String cur = prefs.mode();
-        final String[][] modes = {{"direct", "直连"}, {"rule", "规则"}, {"global", "全局"}};
+        final String[][] modes = {{"direct", L10n.t(this, "直连", "Direct")},
+                {"rule", L10n.t(this, "规则", "Rule")}, {"global", L10n.t(this, "全局", "Global")}};
         for (int i = 0; i < modes.length; i++) {
             final String key = modes[i][0];
             boolean on = key.equals(cur);
@@ -412,24 +418,27 @@ public class MainActivity extends Activity {
             try {
                 list = subs.collectNodes();
             } catch (RuntimeException error) {
-                nodeNameView.setText("配置读取失败");
-                nodeInfoView.setText(error.getMessage());
+                nodeNameView.setText(L10n.t(this, "配置读取失败", "Could not read configuration"));
+                nodeInfoView.setText(L10n.error(this, error));
                 return;
             }
         }
         if (list.isEmpty()) {
-            nodeNameView.setText("未配置节点");
+            nodeNameView.setText(L10n.t(this, "未配置节点", "No nodes configured"));
             nodeNameView.setTextColor(Ui.TEXT_DIM);
-            nodeInfoView.setText("去「订阅」添加，或放到 import.txt 导入");
+            nodeInfoView.setText(L10n.t(this, "去「订阅」添加，或放到 import.txt 导入",
+                    "Add a subscription, or import it via import.txt"));
             return;
         }
         if (sel == null) sel = list.get(0).name;
-        nodeNameView.setText(sel);
-        nodeNameView.setTextColor(Ui.TEXT);
         Node n = find(list, sel);
+        // The generated selector is UI-owned; real subscription node names stay unchanged.
+        nodeNameView.setText(n == null && Session.autoGroup().equals(sel)
+                ? L10n.t(this, "自动选择", "Automatic selection") : sel);
+        nodeNameView.setTextColor(Ui.TEXT);
         String info = (n == null ? "" : n.type.toUpperCase() + " · " + n.server + ":" + n.port);
         Integer ms = Latency.get(sel);
-        if (ms != null) info = info + " · " + Format.latency(ms);
+        if (ms != null) info = info + " · " + Format.latency(this, ms);
         nodeInfoView.setText(info);
     }
 
@@ -443,39 +452,39 @@ public class MainActivity extends Activity {
     private void refreshStatus() {
         boolean running = TunnelService.isRunning();
         if (TunnelService.isStarting()) {
-            statusView.setText("正在连接…");
-            statusSub.setText("可点取消停止连接");
-            toggleBtn.setText("取消");
+            statusView.setText(L10n.t(this, "正在连接…", "Connecting…"));
+            statusSub.setText(L10n.t(this, "可点取消停止连接", "Tap Cancel to stop connecting"));
+            toggleBtn.setText(L10n.t(this, "取消", "Cancel"));
             return;
         }
         if (running) {
-            statusView.setText("已连接");
+            statusView.setText(L10n.t(this, "已连接", "Connected"));
             statusView.setTextColor(Ui.OK);
-            statusSub.setText("VPN 接口已建立 · " + modeLabel(prefs.mode()));
-            toggleBtn.setText("断开");
+            statusSub.setText(L10n.t(this, "VPN 接口已建立 · ", "VPN interface established · ") + modeLabel(prefs.mode()));
+            toggleBtn.setText(L10n.t(this, "断开", "Disconnect"));
             toggleBtn.setBackground(Ui.stroke(this, Ui.CARD_2, Ui.LINE, 13f, 1f));
             toggleBtn.setTextColor(Ui.TEXT);
         } else {
             String err = TunnelService.lastError();
             if (err != null) {
-                statusView.setText("连接失败");
+                statusView.setText(L10n.t(this, "连接失败", "Connection failed"));
                 statusView.setTextColor(Ui.ERR);
-                statusSub.setText(err);
+                statusSub.setText(L10n.message(this, err));
             } else {
-                statusView.setText("未连接");
+                statusView.setText(L10n.t(this, "未连接", "Disconnected"));
                 statusView.setTextColor(Ui.TEXT);
-                statusSub.setText("点下方按钮开始使用");
+                statusSub.setText(L10n.t(this, "点下方按钮开始使用", "Tap the button below to get started"));
             }
-            toggleBtn.setText("连接");
+            toggleBtn.setText(L10n.t(this, "连接", "Connect"));
             toggleBtn.setBackground(Ui.gradient(this, Ui.ACCENT, Ui.ACCENT_2, 13f));
-            toggleBtn.setTextColor(0xFFFFFFFF);
+            toggleBtn.setTextColor(Ui.ON_ACCENT);
         }
     }
 
-    private static String modeLabel(String m) {
-        if ("rule".equals(m)) return "规则";
-        if ("global".equals(m)) return "全局";
-        return "直连";
+    private String modeLabel(String m) {
+        if ("rule".equals(m)) return L10n.t(this, "规则", "Rule");
+        if ("global".equals(m)) return L10n.t(this, "全局", "Global");
+        return L10n.t(this, "直连", "Direct");
     }
 
     // ---------------- IP / DNS ----------------
@@ -502,12 +511,12 @@ public class MainActivity extends Activity {
         if (route.equals(networkRoute)) return;
         networkRoute = route;
         ++networkEpoch;
-        ipAddrView.setText("检测中…");
+        ipAddrView.setText(L10n.t(this, "检测中…", "Checking…"));
         ipAddrView.setTextColor(Ui.TEXT_DIM);
         ipFlagView.setText("");
-        ipMetaView.setText("网络或代理状态已变化");
-        dnsView.setText("DNS 解析 · 等待更新");
-        networkUpdateView.setText("网络变化 · 正在更新");
+        ipMetaView.setText(L10n.t(this, "网络或代理状态已变化", "Network or proxy status changed"));
+        dnsView.setText(L10n.t(this, "DNS 解析 · 等待更新", "DNS resolution · Waiting for update"));
+        networkUpdateView.setText(L10n.t(this, "网络变化 · 正在更新", "Network changed · Updating"));
         ui.removeCallbacks(networkRefresh);
         ui.postDelayed(networkRefresh, 300); // merge callback bursts
     }
@@ -522,7 +531,7 @@ public class MainActivity extends Activity {
         final String route = currentNetworkRoute();
         final int port = TunnelService.isRunning() ? prefs.mixedPort() : 0;
         final long began = android.os.SystemClock.elapsedRealtime();
-        networkUpdateView.setText("自动更新 · 检测中…");
+        networkUpdateView.setText(L10n.t(this, "自动更新 · 检测中…", "Auto-refresh · Checking…"));
         new Thread(new Runnable() {
             @Override public void run() {
                 IpInfo foundIp = null;
@@ -547,8 +556,11 @@ public class MainActivity extends Activity {
                         showDns(dns, port > 0);
                         String time = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
                                 .format(new java.util.Date());
-                        networkUpdateView.setText("自动更新 · " + (port > 0 ? "代理出口" : "本机网络")
-                                + " · " + time + " · 每10秒");
+                        networkUpdateView.setText(String.format(java.util.Locale.US,
+                                L10n.t(MainActivity.this, "自动更新 · %1$s · %2$s · 每10秒",
+                                        "Auto-refresh · %1$s · %2$s · Every 10 seconds"),
+                                port > 0 ? L10n.t(MainActivity.this, "代理出口", "Proxy egress")
+                                        : L10n.t(MainActivity.this, "本机网络", "Device network"), time));
                         long delay = networkRefreshPending ? 300 : Math.max(1000,
                                 NETWORK_INTERVAL_MS - (android.os.SystemClock.elapsedRealtime() - began));
                         ui.postDelayed(networkRefresh, delay);
@@ -561,9 +573,9 @@ public class MainActivity extends Activity {
     private void showIp(IpInfo info) {
         if (info == null || info.ip == null || info.ip.length() == 0) {
             ipFlagView.setText("🌐");
-            ipAddrView.setText("检测失败");
+            ipAddrView.setText(L10n.t(this, "检测失败", "Check failed"));
             ipAddrView.setTextColor(Ui.ERR);
-            ipMetaView.setText("网络不可用或接口被拦截");
+            ipMetaView.setText(L10n.t(this, "网络不可用或接口被拦截", "Network unavailable or endpoint blocked"));
             return;
         }
         String flag = info.flag();
@@ -594,22 +606,24 @@ public class MainActivity extends Activity {
 
     private void showDns(DnsCheck dns, boolean viaProxy) {
         if (dns == null || !dns.ok()) {
-            dnsView.setText("DNS 解析 · 失败");
+            dnsView.setText(L10n.t(this, "DNS 解析 · 失败", "DNS resolution · Failed"));
             dnsView.setTextColor(Ui.ERR);
             return;
         }
         if (viaProxy && dns.proxyMs < 0) {
             // 开了代理却只测到本机解析：不能标成绿色成功。
-            dnsView.setText("DNS 解析 · 代理未通（本机 "
-                    + (dns.systemMs >= 0 ? dns.systemMs + " ms" : "失败") + "）");
+            dnsView.setText(String.format(java.util.Locale.US,
+                    L10n.t(this, "DNS 解析 · 代理未通（本机 %s）", "DNS resolution · Proxy unreachable (device: %s)"),
+                    dns.systemMs >= 0 ? dns.systemMs + " ms" : L10n.t(this, "失败", "Failed")));
             dnsView.setTextColor(Ui.WARN);
             return;
         }
-        StringBuilder sb = new StringBuilder("DNS 解析 ");
+        StringBuilder sb = new StringBuilder(L10n.t(this, "DNS 解析 ", "DNS resolution "));
         if (viaProxy && dns.proxyMs >= 0) {
-            sb.append("域名代理连接 ").append(dns.proxyMs).append(" ms（含握手）");
+            sb.append(L10n.t(this, "域名代理连接 ", "Proxy connection by domain "))
+                    .append(dns.proxyMs).append(L10n.t(this, " ms（含握手）", " ms (including handshake)"));
         } else if (dns.systemMs >= 0) {
-            sb.append("本机 ").append(dns.systemMs).append(" ms");
+            sb.append(L10n.t(this, "本机 ", "Device ")).append(dns.systemMs).append(" ms");
         }
         if (dns.resolved != null) sb.append("  ·  ").append(dns.resolved);
         dnsView.setText(sb.toString());
@@ -622,12 +636,13 @@ public class MainActivity extends Activity {
     /** 完整测速：跑满 15 秒，报告平均与峰值。 */
     private void runSpeedTest() {
         if (speedCancellation != null) {
-            Toast.makeText(this, "已有测速正在进行", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L10n.t(this, "已有测速正在进行", "A speed test is already running"), Toast.LENGTH_SHORT).show();
             return;
         }
         final SpeedTest.Cancellation cancellation = new SpeedTest.Cancellation();
         speedCancellation = cancellation;
-        speedView.setText("测速中… 最长15秒 / 下载体上限300MiB");
+        speedView.setText(L10n.t(this, "测速中… 最长15秒 / 下载体上限300MiB",
+                "Testing… Up to 15 seconds / 300 MiB download-body limit"));
         speedView.setTextColor(Ui.TEXT_MID);
         new Thread(new Runnable() {
             @Override
@@ -642,7 +657,8 @@ public class MainActivity extends Activity {
                             public void run() {
                                 if (stopped || isDestroyed() || cancellation.isCancelled()) return;
                                 speedView.setText(String.format(java.util.Locale.US,
-                                        "%.1f Mbps  ·  平均 %.1f  ·  %s / %.0fs",
+                                        L10n.t(MainActivity.this, "%.1f Mbps  ·  平均 %.1f  ·  %s / %.0fs",
+                                                "%.1f Mbps  ·  Average %.1f  ·  %s / %.0fs"),
                                         now, avg, Format.bytes(bytes), costMs / 1000.0));
                                 speedView.setTextColor(Ui.TEXT_MID);
                             }
@@ -655,23 +671,28 @@ public class MainActivity extends Activity {
                         if (speedCancellation == cancellation) speedCancellation = null;
                         if (isDestroyed()) return;
                         if (r.cancelled || cancellation.isCancelled()) {
-                            speedView.setText("测速已取消");
+                            speedView.setText(L10n.t(MainActivity.this, "测速已取消", "Speed test cancelled"));
                             return;
                         }
                         if (stopped) return;
                         if (r.error != null) {
-                            speedView.setText("测速失败：" + r.error);
+                            speedView.setText(L10n.t(MainActivity.this, "测速失败：", "Speed test failed: ")
+                                    + L10n.message(MainActivity.this, r.error));
                             speedView.setTextColor(Ui.ERR);
                             return;
                         }
                         String head = String.format(java.util.Locale.US, "%.2f Mbps", r.mbpsAvg);
                         String tail = String.format(java.util.Locale.US,
-                                "峰值 %.2f  ·  %s / %.1fs  ·  %d 线程",
+                                L10n.t(MainActivity.this, "峰值 %.2f  ·  %s / %.1fs  ·  %d 线程",
+                                        "Peak %.2f  ·  %s / %.1fs  ·  %d threads"),
                                 r.mbpsPeak, Format.bytes(r.bytes), r.costMs / 1000.0, r.streams);
                         if (r.source != null && r.source.length() > 0) {
                             tail = tail + "\n" + r.source;
                         }
-                        if (r.warning != null && r.warning.length() > 0) tail += "\n部分测速源失败，结果仅供参考";
+                        if (r.warning != null && r.warning.length() > 0) {
+                            tail += "\n" + L10n.t(MainActivity.this, "部分测速源失败，结果仅供参考",
+                                    "Some test sources failed; results are for reference only");
+                        }
                         speedView.setText(head + "\n" + tail);
                         speedView.setTextColor(r.mbpsAvg > 20 ? Ui.OK
                                 : r.mbpsAvg > 5 ? Ui.WARN : Ui.ERR);
@@ -696,7 +717,8 @@ public class MainActivity extends Activity {
                 } catch (final Exception error) {
                     ui.post(new Runnable() { public void run() {
                         if (!isDestroyed()) Toast.makeText(MainActivity.this,
-                                "配置未生效：" + error.getMessage(), Toast.LENGTH_LONG).show();
+                                L10n.t(MainActivity.this, "配置未生效：", "Configuration not applied: ")
+                                        + L10n.error(MainActivity.this, error), Toast.LENGTH_LONG).show();
                     }});
                 }
                 ui.post(new Runnable() {
@@ -733,14 +755,14 @@ public class MainActivity extends Activity {
     private void doStart() {
         if (TunnelService.isStarting()) return;
         if (subs.list().isEmpty()) {
-            Toast.makeText(this, "请先添加订阅", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L10n.t(this, "请先添加订阅", "Add a subscription first"), Toast.LENGTH_SHORT).show();
             startActivity(new Intent(this, SubsActivity.class));
             return;
         }
         TunnelService.start(this);
-        statusView.setText("正在连接…");
+        statusView.setText(L10n.t(this, "正在连接…", "Connecting…"));
         statusView.setTextColor(Ui.WARN);
-        statusSub.setText("正在建立隧道");
+        statusSub.setText(L10n.t(this, "正在建立隧道", "Establishing tunnel"));
         ui.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -757,7 +779,8 @@ public class MainActivity extends Activity {
             boolean ok = resultCode == RESULT_OK && pendingStart;
             pendingStart = false;
             if (ok) doStart();
-            else Toast.makeText(this, "未授权 VPN，无法连接", Toast.LENGTH_SHORT).show();
+            else Toast.makeText(this, L10n.t(this, "未授权 VPN，无法连接",
+                    "VPN permission not granted. Cannot connect."), Toast.LENGTH_SHORT).show();
         }
     }
 }

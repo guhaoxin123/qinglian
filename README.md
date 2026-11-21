@@ -6,6 +6,8 @@
 
 ## 功能
 
+**1.1 新增**：应用内语言（跟随系统 / English / 中文）、外观（跟随系统 / 浅色 / 深色 / Material You 壁纸取色）、自定义配色取色器（色相·饱和度色轮、亮度、RGB、Hex、即时预览）、系统文件选择器导入（UTF-8 / 带 BOM 的 UTF-16，8 MiB 上限，导入前显示格式与节点数量）。
+
 - **订阅管理**：多订阅并存、自动定时更新、手动导入文件或链接
 - **订阅格式**：Clash YAML、Surfboard `.conf`、v2rayNG 分享链接 / Base64 订阅，三端通用
 - **节点**：分组展示、按地区归类、延迟测速与排序、自动挑选最优节点
@@ -29,7 +31,7 @@ app/src/main/
 │   ├── net/                     下载、DNS、IP 信息、测速
 │   ├── sub/                     Clash / Surfboard / v2rayNG 解析器
 │   ├── svc/                     TunnelService、BootReceiver、TUN 回调
-│   └── ui/                      格式化与界面工具
+│   └── ui/                      界面基类、外观/语言、取色器、格式化工具
 └── res/                         图标与资源
 tools/
 ├── build.sh                     设备端构建脚本（aapt2 + javac + d8）
@@ -50,7 +52,7 @@ sh tools/build.sh
 
 ## 下载
 
-APK 见 [Releases](../../releases/latest)：`LitLink_1.0.0.apk`
+APK 见 [Releases](../../releases/latest)：`LitLink_1.1.apk`
 
 ## 说明
 

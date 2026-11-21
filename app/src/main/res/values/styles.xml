@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Framework-only themes: no Gradle, AppCompat, or network dependencies. -->
+    <style name="LitLink.Theme.Dark" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#101013</item>
+        <item name="android:colorBackground">#222126</item>
+        <item name="android:colorAccent">#A9C4FF</item>
+        <item name="android:textColorPrimary">#F7F2F7</item>
+        <item name="android:textColorSecondary">#D0C8D1</item>
+        <item name="android:colorControlNormal">#ABA2AF</item>
+        <item name="android:colorControlActivated">#A9C4FF</item>
+        <item name="android:alertDialogTheme">@style/LitLink.Dialog.Dark</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+    <style name="LitLink.Theme.Light" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">#FFFBFF</item>
+        <item name="android:colorBackground">#FCF8FC</item>
+        <item name="android:colorAccent">#245DC2</item>
+        <item name="android:textColorPrimary">#242027</item>
+        <item name="android:textColorSecondary">#514B56</item>
+        <item name="android:colorControlNormal">#6C6471</item>
+        <item name="android:colorControlActivated">#245DC2</item>
+        <item name="android:alertDialogTheme">@style/LitLink.Dialog.Light</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+    <style name="LitLink.Dialog.Dark" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#A9C4FF</item>
+        <item name="android:colorBackground">#222126</item>
+        <item name="android:textColorPrimary">#F7F2F7</item>
+        <item name="android:textColorSecondary">#D0C8D1</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+    </style>
+    <style name="LitLink.Dialog.Light" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#245DC2</item>
+        <item name="android:colorBackground">#FCF8FC</item>
+        <item name="android:textColorPrimary">#242027</item>
+        <item name="android:textColorSecondary">#514B56</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+    </style>
+</resources>
