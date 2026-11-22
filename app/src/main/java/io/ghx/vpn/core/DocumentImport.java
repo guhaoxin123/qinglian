@@ -146,7 +146,8 @@ public final class DocumentImport {
         String text = source.trim();
         if (text.startsWith("\ufeff")) text = text.substring(1).trim();
         int format = SubParser.detect(text);
-        if (format == SubParser.FMT_UNKNOWN && B64.looksLike(text)) {
+        // 少数订阅把内容再套一层 base64；最多剥两层，每层都做严格校验。
+        for (int round = 0; round < 2 && format == SubParser.FMT_UNKNOWN && B64.looksLike(text); round++) {
             checkBase64(text);
             // Unlike SubParser's forgiving decoder, reject malformed UTF-8 in a wrapper.
             text = decode(B64.decode(text)).trim();

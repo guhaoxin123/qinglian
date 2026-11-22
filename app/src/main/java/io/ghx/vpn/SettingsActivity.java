@@ -205,8 +205,8 @@ public class SettingsActivity extends BaseActivity {
                     @Override public void onClick(View v) { donateDialog(); }
                 }));
         TextView note = Ui.text(this,
-                t("支持 Clash / Surfboard / v2ray 订阅；默认全局代理。",
-                        "Supports Clash / Surfboard / v2ray subscriptions; global proxy is the default."),
+                t("支持 Clash / Surfboard / v2ray / ql 混合订阅；默认全局代理。",
+                        "Supports Clash / Surfboard / v2ray / ql mixed subscriptions; global proxy is the default."),
                 12f, Ui.TEXT_DIM);
         note.setPadding(0, Ui.dp(this, 18), 0, 0);
         root.addView(note);

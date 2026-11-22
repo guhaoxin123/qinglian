@@ -28,6 +28,19 @@ public final class V2rayUriParser {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) continue;
+            // 一行里混排了多条链接（ql 混合）：先拆开再逐条解析，避免把后半截当参数。
+            List<String> parts = QlParser.split(line);
+            if (parts.size() > 1) {
+                for (int j = 0; j < parts.size(); j++) {
+                    try {
+                        Node n = parseOne(parts.get(j));
+                        if (n != null) out.add(n);
+                    } catch (RuntimeException ignored) {
+                        // 单个节点解析失败不影响整体
+                    }
+                }
+                continue;
+            }
             try {
                 Node n = parseOne(line);
                 if (n != null) out.add(n);

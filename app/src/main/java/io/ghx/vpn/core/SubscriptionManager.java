@@ -58,7 +58,8 @@ public final class SubscriptionManager {
 
     private static int profileType(int fmt) {
         return fmt == SubParser.FMT_CLASH ? Profile.TYPE_CLASH
-                : fmt == SubParser.FMT_SURFBOARD ? Profile.TYPE_SURFBOARD : Profile.TYPE_URI;
+                : fmt == SubParser.FMT_SURFBOARD ? Profile.TYPE_SURFBOARD
+                : fmt == SubParser.FMT_QL ? Profile.TYPE_QL : Profile.TYPE_URI;
     }
 
     private static int validatedNodeCount(String text, int fmt) {
@@ -192,8 +193,9 @@ public final class SubscriptionManager {
             return new ArrayList<Node>();
         }
         if (p.type == Profile.TYPE_CLASH) return ClashYaml.proxies(p.content);
-        return SubParser.parseNodes(p.content,
-                p.type == Profile.TYPE_SURFBOARD ? SubParser.FMT_SURFBOARD : SubParser.FMT_URI);
+        int fmt = p.type == Profile.TYPE_SURFBOARD ? SubParser.FMT_SURFBOARD
+                : p.type == Profile.TYPE_QL ? SubParser.FMT_QL : SubParser.FMT_URI;
+        return SubParser.parseNodes(p.content, fmt);
     }
 
     /** 供界面用：某个配置里的分组（仅 Clash 原文有）。 */

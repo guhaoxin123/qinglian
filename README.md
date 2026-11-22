@@ -6,6 +6,8 @@
 
 ## 功能
 
+**1.2 新增**：ql 混合链接 —— 一段文字里混排多条不同协议的节点链接，导入时自动拆开成多条节点。
+
 **1.1 新增**：应用内语言（跟随系统 / English / 中文）、外观（跟随系统 / 浅色 / 深色 / Material You 壁纸取色）、自定义配色取色器（色相·饱和度色轮、亮度、RGB、Hex、即时预览）、系统文件选择器导入（UTF-8 / 带 BOM 的 UTF-16，8 MiB 上限，导入前显示格式与节点数量）。
 
 - **订阅管理**：多订阅并存、自动定时更新、手动导入文件或链接
@@ -15,6 +17,15 @@
 - **分流**：规则过滤（`RuleFilter`）、按应用绕过（`BypassActivity`）
 - **诊断**：自检（`SelfTest`）、DNS 检查、IP 信息、测速、日志面板
 - **界面**：原生 Activity，无第三方 UI 框架，体积小、启动快
+
+## ql 混合链接
+
+一段文字里可以混排 2 条、3 条或更多不同协议的节点链接，导入时自动一张张摊平，不用一条条粘。
+
+- **认这几种写法**：中间空格隔开、逗号 / 分号 / 竖线隔开、每行一条、首尾直接相连、整段 base64 压缩、以 `ql://` 开头
+- **协议可以混着来**：vmess / vless / trojan / ss / hysteria2 / tuic / socks
+- **用法**：管理订阅 → 粘贴导入 → 粘进整段文字 → 点导入，先看「格式：ql 混合链接 / 可识别节点：3」→ 再点一次导入
+- **提示**：可识别节点数和原文条数对上才算拆全；只认出 1 个多半是某段没复制全。导入只保存配置，不会自动联网，要开代理得自己在首页点连接
 
 ## 目录结构
 
@@ -29,7 +40,7 @@ app/src/main/
 │   ├── BypassActivity.java      分应用代理
 │   ├── core/                    配置构建、订阅、会话、延迟、自检、日志
 │   ├── net/                     下载、DNS、IP 信息、测速
-│   ├── sub/                     Clash / Surfboard / v2rayNG 解析器
+│   ├── sub/                     Clash / Surfboard / v2rayNG / ql 混合链接解析器
 │   ├── svc/                     TunnelService、BootReceiver、TUN 回调
 │   └── ui/                      界面基类、外观/语言、取色器、格式化工具
 └── res/                         图标与资源
@@ -52,7 +63,7 @@ sh tools/build.sh
 
 ## 下载
 
-APK 见 [Releases](../../releases/latest)：`LitLink_1.1.apk`
+APK 见 [Releases](../../releases/latest)：`qinglian_1.2.apk`
 
 ## 说明
 

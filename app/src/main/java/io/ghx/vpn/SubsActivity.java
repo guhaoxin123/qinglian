@@ -177,8 +177,8 @@ public class SubsActivity extends BaseActivity {
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         head.addView(title);
         content.addView(head);
-        hint = Ui.text(this, L10n.t(this, "点卡片选用配置 · 支持 Clash / v2ray / Surfboard",
-                "Tap a card to select · Clash / v2ray / Surfboard"), 12f, Ui.TEXT_DIM);
+        hint = Ui.text(this, L10n.t(this, "点卡片选用配置 · 支持 Clash / v2ray / Surfboard / ql 混合",
+                "Tap a card to select · Clash / v2ray / Surfboard / ql mixed"), 12f, Ui.TEXT_DIM);
         hint.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 16));
         content.addView(hint);
         list = Ui.column(this);
@@ -357,6 +357,7 @@ public class SubsActivity extends BaseActivity {
     private String typeLabel(Profile profile) {
         if (profile.type == Profile.TYPE_CLASH) return L10n.t(this, "Clash", "Clash");
         if (profile.type == Profile.TYPE_SURFBOARD) return L10n.t(this, "Surfboard", "Surfboard");
+        if (profile.type == Profile.TYPE_QL) return L10n.t(this, "ql 混合", "ql mixed");
         return L10n.t(this, "v2ray", "v2ray");
     }
 
@@ -571,8 +572,8 @@ public class SubsActivity extends BaseActivity {
         final EditText name = nameInput(null);
         box.addView(name);
         final EditText body = new EditText(this);
-        body.setHint(L10n.t(this, "粘贴 Clash YAML、Surfboard 配置或 v2ray 链接（每行一条）",
-                "Paste Clash YAML, Surfboard configuration or v2ray links (one per line)"));
+        body.setHint(L10n.t(this, "粘贴 Clash YAML、Surfboard 配置或 v2ray 链接（每行一条，ql 混合链接可挤在一起）",
+                "Paste Clash YAML, Surfboard or v2ray links (one per line; ql mixed links may be joined)"));
         body.setTextColor(Ui.TEXT);
         body.setHintTextColor(Ui.TEXT_DIM);
         body.setMinLines(5);
@@ -652,6 +653,7 @@ public class SubsActivity extends BaseActivity {
         int format = state.preview.format;
         String formatName = format == SubParser.FMT_CLASH ? L10n.t(this, "Clash YAML", "Clash YAML")
                 : format == SubParser.FMT_SURFBOARD ? L10n.t(this, "Surfboard", "Surfboard")
+                : format == SubParser.FMT_QL ? L10n.t(this, "ql 混合链接", "ql mixed links")
                 : L10n.t(this, "v2ray 链接", "v2ray links");
         int count = state.preview.nodeCount;
         String summary = L10n.t(this, "格式：", "Format: ") + formatName + "\n"
@@ -662,6 +664,9 @@ public class SubsActivity extends BaseActivity {
         if (format == SubParser.FMT_CLASH) summary += "\n" + L10n.t(this,
                 "仅做基础检查，不代表已通过完整 YAML/内核校验；不会下载提供器。",
                 "Basic checks only, not full YAML/core validation. Providers are not downloaded.");
+        if (format == SubParser.FMT_QL) summary += "\n" + L10n.t(this,
+                "同一段文本里混排的多个链接会被逐个拆开识别。",
+                "Links mixed in one text are split and recognized one by one.");
         TextView details = Ui.text(this, summary, 13f, Ui.TEXT_MID);
         details.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 8));
         box.addView(details);
@@ -755,8 +760,8 @@ public class SubsActivity extends BaseActivity {
                         "不支持二进制文件或压缩包，请选择未压缩的文本配置。",
                         "Binary files and archives are not supported. Choose an uncompressed text configuration.");
                 case FORMAT: return L10n.t(this,
-                        "无法识别配置格式。支持 Clash YAML、Surfboard 和 v2ray 链接列表。",
-                        "Unrecognized format. Use Clash YAML, Surfboard or a v2ray link list.");
+                        "无法识别配置格式。支持 Clash YAML、Surfboard、v2ray 链接列表和 ql 混合链接。",
+                        "Unrecognized format. Use Clash YAML, Surfboard, a v2ray link list or ql mixed links.");
                 case NO_NODES: return L10n.t(this,
                         "配置没有可识别节点或静态代理列表为空。", "No recognizable nodes, or the static proxy list is empty.");
                 case MALFORMED: return L10n.t(this,

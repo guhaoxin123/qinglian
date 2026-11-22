@@ -6,6 +6,8 @@ Android 7.0+ (minSdk 24, targetSdk 35), arm64-v8a. Native core/JNI and previousl
 
 ## New features
 
+- ql mixed format: one text may hold two, three or more node links of different protocols (vmess / vless / trojan / ss / hysteria2 / tuic / socks), separated by nothing at all or by spaces, commas, semicolons, pipes or escaped newlines. Each link is split out and parsed by the existing per-protocol parsers; an optional `ql://` prefix wraps either the plain mix or a base64 of it. A plain one-link-per-line list is still reported as an ordinary link list.
+
 - App language: follow system, Simplified Chinese, English. Unsupported system languages fall back to Chinese. User-provided node/profile/application names and external diagnostics are not translated.
 - Appearance: follow system, light, dark. Android 12+ uses public system wallpaper accent resources when Material You is enabled; older Android keeps the manual accent.
 - Custom palette: hue/saturation wheel with accessible sliders, brightness, RGB tab, Hex (#RRGGBB), live preview, reset, cancel, confirm. Only Confirm saves. Custom confirmation turns wallpaper accent off. Text contrast is derived from the selected fill color.

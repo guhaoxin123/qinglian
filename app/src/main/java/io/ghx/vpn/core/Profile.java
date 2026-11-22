@@ -6,6 +6,8 @@ public final class Profile {
     public static final int TYPE_CLASH = 1;
     public static final int TYPE_URI = 2;
     public static final int TYPE_SURFBOARD = 3;
+    /** ql 混合：一条内容里混排多个不同协议的节点链接。 */
+    public static final int TYPE_QL = 4;
 
     public String id;
     public String name;

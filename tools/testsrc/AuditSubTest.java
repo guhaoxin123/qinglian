@@ -55,6 +55,59 @@ public final class AuditSubTest {
         String encodedUnknown = B64.encodeUtf8(unknown);
         check("unknown base64 remains unchanged", SubParser.unwrapBase64(encodedUnknown).equals(encodedUnknown));
         check("HTML remains unknown", SubParser.detect("<!doctype html><html>error</html>") == SubParser.FMT_UNKNOWN);
+
+        // ---- ql 混合格式：一段文本里混排 2 个、3 个或多个不同协议的链接 ----
+        String ssLink = "ss://" + B64.encodeUtf8("aes-128-gcm:test") + "@ss.example.invalid:8388#S1";
+        String ql2 = "trojan://test@example.invalid:443#T1 " + ssLink;
+        check("ql: two links on one line detect as ql", SubParser.detect(ql2) == SubParser.FMT_QL);
+        check("ql: two mixed links parse to 2 nodes",
+                SubParser.parseNodes(ql2, SubParser.detect(ql2)).size() == 2);
+        check("ql: comma separator works",
+                SubParser.detect("trojan://test@example.invalid:443#T1," + ssLink) == SubParser.FMT_QL);
+        check("ql: semicolon separator works",
+                SubParser.detect("trojan://test@example.invalid:443#T1;" + ssLink) == SubParser.FMT_QL);
+        check("ql: pipe separator works",
+                SubParser.detect("trojan://test@example.invalid:443#T1|" + ssLink) == SubParser.FMT_QL);
+
+        String ql3 = "vless://11111111-1111-1111-1111-111111111111@v.example.invalid:443"
+                + "?type=ws&security=tls&path=%2Fws#V1"
+                + "hysteria2://pass@h.example.invalid:8443?sni=h.example.invalid#H1"
+                + ssLink;
+        java.util.List<Node> mixed = SubParser.parseNodes(ql3, SubParser.detect(ql3));
+        check("ql: three glued links detect as ql", SubParser.detect(ql3) == SubParser.FMT_QL);
+        check("ql: three glued links parse to 3 nodes", mixed.size() == 3);
+        check("ql: glued links keep distinct protocols",
+                "vless".equals(mixed.get(0).type) && "hysteria2".equals(mixed.get(1).type)
+                        && "ss".equals(mixed.get(2).type));
+        check("ql: glued links keep their own names",
+                "V1".equals(mixed.get(0).name) && "H1".equals(mixed.get(1).name)
+                        && "S1".equals(mixed.get(2).name));
+
+        check("ql: JSON-escaped newline separator works",
+                SubParser.detect(ql2.replace(" ", "\\n")) == SubParser.FMT_QL);
+
+        String qlWrapped = "ql://" + B64.encodeUtf8(ql3);
+        check("ql: ql:// wrapper keeps all nodes",
+                SubParser.parseNodes(qlWrapped, SubParser.detect(qlWrapped)).size() == 3);
+        String qlPlainWrapper = "ql://" + ql2;
+        check("ql: ql:// plaintext wrapper detects as ql",
+                SubParser.detect(qlPlainWrapper) == SubParser.FMT_QL
+                        && SubParser.parseNodes(qlPlainWrapper, SubParser.FMT_QL).size() == 2);
+
+        // 老格式不受影响：每行一条仍是普通 URI 列表，单条链接也不会被误判成 ql
+        check("ql: one link per line stays plain URI list",
+                SubParser.detect("trojan://test@example.invalid:443#T1\n" + ssLink) == SubParser.FMT_URI);
+        check("ql: single link stays plain URI",
+                SubParser.detect("trojan://test@example.invalid:443#T1") == SubParser.FMT_URI);
+        check("ql: single link keeps parsing", SubParser.parseNodes(ssLink, SubParser.FMT_URI).size() == 1);
+        check("ql: mixed line also parses under plain URI",
+                SubParser.parseNodes(ql2, SubParser.FMT_URI).size() == 2);
+        check("ql: base64-wrapped mix unwraps and detects",
+                SubParser.detect(SubParser.unwrapBase64(B64.encodeUtf8(ql3))) == SubParser.FMT_QL);
+        check("ql: double base64 wrapper unwraps",
+                SubParser.detect(SubParser.unwrapBase64(B64.encodeUtf8(B64.encodeUtf8(ql3)))) == SubParser.FMT_QL);
+        check("ql: unknown text is still unknown",
+                SubParser.detect("ql://not a link at all") == SubParser.FMT_UNKNOWN);
         System.out.println("AuditSubTest: " + checks + " checks passed");
     }
 }

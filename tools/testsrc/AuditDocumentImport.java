@@ -144,6 +144,15 @@ public final class AuditDocumentImport {
         check("base64 Clash", DocumentImport.inspect(B64.encodeUtf8(CLASH)).nodeCount == 1);
         check("base64 URI", DocumentImport.inspect(B64.encodeUtf8(astral)).nodeCount == 1);
         check("URI format", DocumentImport.inspect(astral).format == SubParser.FMT_URI);
+        String qlMix = "trojan://test@example.invalid:443#T1 ss://"
+                + B64.encodeUtf8("aes-128-gcm:test") + "@ss.example.invalid:8388#S1"
+                + "hysteria2://pass@h.example.invalid:8443#H1";
+        DocumentImport.Preview ql = DocumentImport.inspect(qlMix);
+        check("ql mixed links import as ql", ql.format == SubParser.FMT_QL);
+        check("ql mixed links count every node", ql.nodeCount == 3);
+        check("ql wrapper imports", DocumentImport.inspect("ql://" + B64.encodeUtf8(qlMix)).nodeCount == 3);
+        check("ql double base64 imports",
+                DocumentImport.inspect(B64.encodeUtf8(B64.encodeUtf8(qlMix))).nodeCount == 3);
         check("Surfboard", DocumentImport.inspect("[Proxy]\nExample = trojan, example.invalid, 443, password=test").nodeCount == 1);
         rejectsText("empty paste", " \n", Problem.EMPTY);
         rejectsText("unpaired surrogate paste", "proxies:\n\ud800", Problem.ENCODING);

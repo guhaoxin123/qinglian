@@ -9,6 +9,8 @@ public final class SubParser {
     public static final int FMT_CLASH = 1;
     public static final int FMT_URI = 2;
     public static final int FMT_SURFBOARD = 3;
+    /** ql 混合：同一段文本里混排 2 个以上不同协议的节点链接。 */
+    public static final int FMT_QL = 4;
 
     private SubParser() {
     }
@@ -21,10 +23,18 @@ public final class SubParser {
         if (SurfboardParser.looksLike(t)) return FMT_SURFBOARD;
         // Clash: 有 proxies: 顶层键
         if (hasClashKey(t, "proxies") || hasClashKey(t, "proxy-groups")) return FMT_CLASH;
+        // ql: 显式前缀优先；正文里的链接可以一条条拆开
+        if (QlParser.hasWrapper(t) && !QlParser.split(QlParser.unwrap(t)).isEmpty()) return FMT_QL;
         String[] lines = t.split("\\r?\\n");
+        boolean anyLink = false;
         for (int i = 0; i < lines.length; i++) {
-            if (V2rayUriParser.looksLike(lines[i])) return FMT_URI;
+            List<String> links = QlParser.split(lines[i]);
+            if (links.isEmpty()) continue;
+            anyLink = true;
+            // 同一行里混排了 2 条以上链接（两个、三个都算）＝ ql 混合格式
+            if (links.size() > 1 && QlParser.count(links) > 1) return FMT_QL;
         }
+        if (anyLink) return FMT_URI;
         // Detection is plaintext-only. Decoding here would make unwrapBase64 return
         // encoded Clash unchanged after mistaking it for already-decoded YAML.
         return FMT_UNKNOWN;
@@ -41,21 +51,25 @@ public final class SubParser {
 
     /** 解析节点列表（Clash 原文由内核自己解析，这里返回空）。 */
     public static List<Node> parseNodes(String content, int fmt) {
+        if (fmt == FMT_QL) return QlParser.parse(content);
         if (fmt == FMT_URI) return V2rayUriParser.parse(content);
         if (fmt == FMT_SURFBOARD) return SurfboardParser.parse(content);
         return new java.util.ArrayList<Node>();
     }
 
-    /** 订阅可能是整体 base64，自动解一层。 */
+    /** 订阅可能是整体 base64（少数是套两层），自动解到能识别为止，最多两层。 */
     public static String unwrapBase64(String raw) {
         if (raw == null) return "";
-        String t = normalize(raw);
-        if (detect(t) != FMT_UNKNOWN) return t;
-        if (B64.looksLike(t)) {
+        String original = normalize(raw);
+        String t = original;
+        for (int round = 0; round < 2; round++) {
+            if (detect(t) != FMT_UNKNOWN) return t;
+            if (!B64.looksLike(t)) break;
             String dec = normalize(B64.decodeUtf8(t));
-            if (dec.length() > 0 && detect(dec) != FMT_UNKNOWN) return dec;
+            if (dec.length() == 0 || dec.equals(t)) break;
+            t = dec;
         }
-        return t;
+        return detect(t) != FMT_UNKNOWN ? t : original;
     }
 
     private static String normalize(String text) {
