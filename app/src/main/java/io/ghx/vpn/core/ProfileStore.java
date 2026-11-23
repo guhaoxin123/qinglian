@@ -45,8 +45,13 @@ public final class ProfileStore {
                     p.url = o.optString("url", "");
                     p.content = o.optString("content", "");
                     p.type = o.optInt("type", Profile.TYPE_CLASH);
+                    // 旧版本给只有地址的订阅默认写了 v2ray；没内容就是格式未知，别再误报。
+                    if ((p.content == null || p.content.length() == 0)
+                            && p.updatedAt == 0L && p.url.length() > 0) {
+                        p.type = Profile.TYPE_UNKNOWN;
+                    }
                     p.updatedAt = o.optLong("updatedAt", 0L);
-                    p.autoUpdateHours = o.optInt("autoUpdateHours", 12);
+                    p.autoUpdateMinutes = o.optInt("autoUpdateMinutes", o.optInt("autoUpdateHours", 12) * 60);
                     p.enabled = o.optBoolean("enabled", true);
                     p.lastError = o.optString("lastError", null);
                     if (p.id == null || p.id.length() == 0) {
@@ -81,7 +86,7 @@ public final class ProfileStore {
                     o.put("content", p.content == null ? "" : p.content);
                     o.put("type", p.type);
                     o.put("updatedAt", p.updatedAt);
-                    o.put("autoUpdateHours", p.autoUpdateHours);
+                    o.put("autoUpdateMinutes", p.autoUpdateMinutes);
                     o.put("enabled", p.enabled);
                     if (p.lastError != null) o.put("lastError", p.lastError);
                     arr.put(o);

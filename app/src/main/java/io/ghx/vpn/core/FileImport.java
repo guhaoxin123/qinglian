@@ -33,7 +33,7 @@ public final class FileImport {
 
             SubscriptionManager sm = new SubscriptionManager(ctx);
             String name = guessName(content);
-            Profile p = sm.addRaw(name, content, new Prefs(ctx).autoUpdateHours());
+            Profile p = sm.addRaw(name, content, new Prefs(ctx).autoUpdateMinutes());
             src.renameTo(new File(dir, DONE));
             return p;
         } catch (Throwable t) {

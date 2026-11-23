@@ -22,6 +22,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import io.ghx.vpn.core.Interval;
 import io.ghx.vpn.core.Prefs;
 import io.ghx.vpn.core.Session;
 import io.ghx.vpn.svc.TunnelService;
@@ -158,13 +159,14 @@ public class SettingsActivity extends BaseActivity {
         root.addView(section(t("订阅", "Subscriptions")));
         final TextView autoValue = value(autoLabel());
         root.addView(item(t("新订阅默认更新间隔", "Default interval for new subscriptions"),
-                t("关闭暂停全部自动更新；已有间隔在配置页修改", "Off pauses all automatic updates; edit existing intervals in Profiles"),
+                t("最短 15 分钟；关闭暂停全部自动更新，已有间隔在配置页修改",
+                        "15 min minimum; Off pauses all automatic updates, edit existing intervals in Profiles"),
                 autoValue, new View.OnClickListener() {
                     @Override public void onClick(View v) {
-                        int current = prefs.autoUpdateHours();
-                        int next = current == 0 ? 6 : current == 6 ? 12 : current == 12 ? 24 : 0;
-                        prefs.autoUpdateHours(next);
+                        int next = Interval.next(prefs.autoUpdateMinutes());
+                        prefs.autoUpdateMinutes(next);
                         autoValue.setText(autoLabel());
+                        io.ghx.vpn.core.AutoUpdate.schedule(SettingsActivity.this);
                     }
                 }));
 
@@ -205,8 +207,8 @@ public class SettingsActivity extends BaseActivity {
                     @Override public void onClick(View v) { donateDialog(); }
                 }));
         TextView note = Ui.text(this,
-                t("支持 Clash / Surfboard / v2ray / ql 混合订阅；默认全局代理。",
-                        "Supports Clash / Surfboard / v2ray / ql mixed subscriptions; global proxy is the default."),
+                t("支持 Clash / Surfboard / v2ray / ql 混合订阅，可从文件、链接或粘贴导入；默认全局代理。",
+                        "Supports Clash / Surfboard / v2ray / ql mixed subscriptions, importable from a file, a URL or clipboard; global proxy is the default."),
                 12f, Ui.TEXT_DIM);
         note.setPadding(0, Ui.dp(this, 18), 0, 0);
         root.addView(note);
@@ -233,8 +235,9 @@ public class SettingsActivity extends BaseActivity {
 
     private String onOff(boolean on) { return on ? t("开", "On") : t("关", "Off"); }
     private String autoLabel() {
-        int hours = prefs.autoUpdateHours();
-        return hours == 0 ? t("关闭", "Off") : hours + t(" 小时", " hours");
+        int minutes = prefs.autoUpdateMinutes();
+        return minutes == 0 ? t("关闭", "Off")
+                : t(Interval.labelZh(minutes), Interval.labelEn(minutes));
     }
 
     private String languageLabel() {

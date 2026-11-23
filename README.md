@@ -1,10 +1,12 @@
 # 轻连 LitLink
 
-轻量级 Android 代理客户端，Clash 内核（mihomo）+ TUN 转发，支持 **Clash / Surfboard / v2rayNG** 三种订阅格式。
+轻量级 Android 代理客户端，Clash 内核（mihomo）+ TUN 转发，支持 **Clash / Surfboard / v2ray / ql 混合** 四种订阅格式。
 
 > 由 DSH 编写
 
 ## 功能
+
+**1.7 新增**：配置卡片的格式标签按真正解析出的协议显示（单一协议显示 `vmess` / `trojan` / `ss`…，混合协议显示「ql 混合」，没下载成功显示「待识别」）；自动更新改为按分钟计、最短 15 分钟并由闹钟触发；订阅页只保留「＋ 添加订阅」和「导入」两个按钮。
 
 **1.2 新增**：ql 混合链接 —— 一段文字里混排多条不同协议的节点链接，导入时自动拆开成多条节点。
 
@@ -61,9 +63,8 @@ sh tools/build.sh
 
 脚本流程：`aapt2 compile` → `aapt2 link` → `javac`（bootclasspath 用 `android.jar`）→ `d8` 转 dex → 组装并签名产出 APK。
 
-## 下载
+APK 见 [Releases](../../releases/latest)：`qinglian_1.7.apk`（源码见同名 `qinglian_1.7-source.tgz`）
 
-APK 见 [Releases](../../releases/latest)：`qinglian_1.2.apk`
 
 ## 说明
 

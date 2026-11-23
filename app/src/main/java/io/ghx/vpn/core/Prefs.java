@@ -16,6 +16,8 @@ public final class Prefs {
     private static final String K_MIXED = "mixedPort";
     private static final String K_LAN = "allowLan";
     private static final String K_TUN = "tun";
+    private static final String K_AUTO_MINUTES = "autoUpdateMinutes";
+    /** 1.4 及更早只存小时；仅用于一次性换算，不再写入。 */
     private static final String K_AUTO_HOURS = "autoUpdateHours";
     private static final String K_LAST_START = "lastStartAt";
     private static final String K_LAST_SUB = "lastSubCheck";
@@ -75,12 +77,22 @@ public final class Prefs {
 
     // ---- 订阅自动更新 ----
 
-    public int autoUpdateHours() {
-        return sp.getInt(K_AUTO_HOURS, 12);
+    public int autoUpdateMinutes() {
+        if (sp.contains(K_AUTO_MINUTES)) {
+            return Interval.normalize(sp.getInt(K_AUTO_MINUTES, Interval.DEFAULT_MINUTES));
+        }
+        // 从 1.4 升级：老值按小时读，换算成分钟后面就只认分钟键。
+        if (sp.contains(K_AUTO_HOURS)) {
+            int minutes = Interval.normalize(sp.getInt(K_AUTO_HOURS, 0) * 60);
+            sp.edit().putInt(K_AUTO_MINUTES, minutes).apply();
+            return minutes;
+        }
+        return Interval.DEFAULT_MINUTES;
     }
 
-    public void autoUpdateHours(int v) {
-        sp.edit().putInt(K_AUTO_HOURS, v).apply();
+    /** 最小 15 分钟；0 = 关闭全部自动更新。 */
+    public void autoUpdateMinutes(int minutes) {
+        sp.edit().putInt(K_AUTO_MINUTES, Interval.normalize(minutes)).apply();
     }
 
     public long lastSubCheck() {

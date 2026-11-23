@@ -78,11 +78,12 @@ public final class SubscriptionManager {
     }
 
     /** 收藏/新增订阅。 */
-    public Profile add(String name, String url, int autoUpdateHours) {
+    public Profile add(String name, String url, int autoUpdateMinutes) {
         synchronized (ProfileStore.LOCK) {
             List<Profile> all = store.load();
-            Profile p = new Profile("p" + UUID.randomUUID().toString(), name, url, Profile.TYPE_URI);
-            p.autoUpdateHours = Math.max(0, autoUpdateHours);
+            // 只有地址时格式未知，等第一次下载成功再定型（之前一律写成 v2ray，界面上会误报）。
+            Profile p = new Profile("p" + UUID.randomUUID().toString(), name, url, Profile.TYPE_UNKNOWN);
+            p.autoUpdateMinutes = Interval.normalize(autoUpdateMinutes);
             all.add(p);
             store.save(all);
             return p;
@@ -90,7 +91,7 @@ public final class SubscriptionManager {
     }
 
     /** 手动粘贴内容导入；拒绝无法识别或没有可用节点的内容。 */
-    public Profile addRaw(String name, String content, int autoUpdateHours) {
+    public Profile addRaw(String name, String content, int autoUpdateMinutes) {
         String text = SubParser.unwrapBase64(content);
         int fmt = SubParser.detect(text);
         validatedNodeCount(text, fmt);
@@ -98,11 +99,34 @@ public final class SubscriptionManager {
             List<Profile> all = store.load();
             Profile p = new Profile("p" + UUID.randomUUID().toString(), name, "", profileType(fmt));
             p.content = text;
-            p.autoUpdateHours = Math.max(0, autoUpdateHours);
+            p.autoUpdateMinutes = Interval.normalize(autoUpdateMinutes);
             p.updatedAt = System.currentTimeMillis();
             all.add(p);
             store.save(all);
             Log.i("订阅已添加 " + p.name + " 格式=" + fmt + " 长度=" + text.length());
+            return p;
+        }
+    }
+
+    /**
+     * 从 URL 导入：保存订阅地址和已校验过的内容，保存后即参与自动更新。
+     * 内容来自用户已预览的那次下载，因此不重复请求；updatedAt 由这次下载时间决定。
+     */
+    public Profile addRemote(String name, String url, String content, int autoUpdateMinutes) {
+        if (url == null || url.trim().length() == 0) throw new IllegalArgumentException("缺少订阅地址");
+        String text = SubParser.unwrapBase64(content);
+        int fmt = SubParser.detect(text);
+        validatedNodeCount(text, fmt);
+        synchronized (ProfileStore.LOCK) {
+            List<Profile> all = store.load();
+            Profile p = new Profile("p" + UUID.randomUUID().toString(), name, url, profileType(fmt));
+            p.content = text;
+            p.autoUpdateMinutes = Interval.normalize(autoUpdateMinutes);
+            p.updatedAt = System.currentTimeMillis();
+            p.lastError = null;
+            all.add(p);
+            store.save(all);
+            Log.i("订阅已从链接导入 " + p.name + " 格式=" + fmt + " 自动=" + p.autoUpdateMinutes + "m");
             return p;
         }
     }
@@ -129,12 +153,12 @@ public final class SubscriptionManager {
     }
 
     /** Update only this setting, preserving a concurrent refresh's cached content. */
-    public void setAutoUpdateHours(String id, int hours) {
+    public void setAutoUpdateMinutes(String id, int minutes) {
         synchronized (ProfileStore.LOCK) {
             List<Profile> all = store.load();
             Profile current = store.byId(all, id);
             if (current == null) return;
-            current.autoUpdateHours = Math.max(0, hours);
+            current.autoUpdateMinutes = Interval.normalize(minutes);
             store.save(all);
         }
     }
@@ -152,14 +176,14 @@ public final class SubscriptionManager {
     /** 需要自动更新的订阅。 */
     public List<Profile> dueForUpdate() {
         List<Profile> out = new ArrayList<Profile>();
-        if (new Prefs(ctx).autoUpdateHours() <= 0) return out;
+        if (new Prefs(ctx).autoUpdateMinutes() <= 0) return out;
         List<Profile> all = store.load();
         long now = System.currentTimeMillis();
         for (int i = 0; i < all.size(); i++) {
             Profile p = all.get(i);
-            if (!p.enabled || !p.hasUrl() || p.autoUpdateHours <= 0) continue;
-            long period = p.autoUpdateHours * 3600_000L;
-            if (now - p.updatedAt >= period) out.add(p);
+            if (!p.enabled || !p.hasUrl() || Interval.periodMs(p.autoUpdateMinutes) == 0) continue;
+            if (!Interval.due(p.updatedAt, p.autoUpdateMinutes, now)) continue;
+            out.add(p);
         }
         return out;
     }

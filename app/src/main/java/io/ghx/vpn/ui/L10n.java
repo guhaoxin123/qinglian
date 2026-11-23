@@ -75,6 +75,14 @@ public final class L10n {
             case "内核报告 TUN 启动/运行失败": return "The core reported a TUN startup/runtime failure";
             case "跳转缺少 Location": return "The redirect has no Location header";
             case "重定向次数过多": return "Too many redirects";
+            case "下载超时（20 秒内没有响应），检查这个地址能否直连":
+                return "Download timed out (no response in 20 s); check that this URL is reachable directly";
+            case "域名解析失败，检查网络或这个地址":
+                return "Could not resolve the host name; check your network or the URL";
+            case "HTTPS 握手失败，可能被拦截或证书有问题":
+                return "HTTPS handshake failed; it may be intercepted or have a bad certificate";
+            case "连接被拒绝，这个地址可能不可用":
+                return "The connection was refused; this URL may be unavailable";
             case "订阅过大（超过 8MB）": return "The subscription exceeds the 8 MB limit";
             case "无效的测速参数": return "Invalid speed-test parameters";
             case "下载连接未能在关闭期限内退出": return "The download connection did not close before the deadline";

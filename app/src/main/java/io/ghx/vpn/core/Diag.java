@@ -38,7 +38,7 @@ public final class Diag {
                   .append(" type=").append(pr.type)
                   .append(" enabled=").append(pr.enabled)
                   .append(" nodes=").append(pr.nodeEstimate())
-                  .append(" auto=").append(pr.autoUpdateHours).append("h")
+                  .append(" auto=").append(pr.autoUpdateMinutes).append("m")
                   .append(" updated=").append(pr.updatedAt)
                   .append(pr.lastError == null ? "" : " err=" + pr.lastError)
                   .append('\n');

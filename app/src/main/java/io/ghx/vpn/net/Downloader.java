@@ -30,6 +30,20 @@ public final class Downloader {
     }
 
     public static Result fetch(String url) throws IOException {
+        try {
+            return fetchFollowing(url);
+        } catch (java.net.SocketTimeoutException e) {
+            throw new IOException("下载超时（20 秒内没有响应），检查这个地址能否直连", e);
+        } catch (java.net.UnknownHostException e) {
+            throw new IOException("域名解析失败，检查网络或这个地址", e);
+        } catch (javax.net.ssl.SSLException e) {
+            throw new IOException("HTTPS 握手失败，可能被拦截或证书有问题", e);
+        } catch (java.net.ConnectException e) {
+            throw new IOException("连接被拒绝，这个地址可能不可用", e);
+        }
+    }
+
+    private static Result fetchFollowing(String url) throws IOException {
         String cur = url;
         for (int hop = 0; hop < 6; hop++) {
             HttpURLConnection c = open(cur);

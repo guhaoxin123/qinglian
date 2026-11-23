@@ -3,6 +3,8 @@ package io.ghx.vpn.core;
 /** 一份节点配置：可来自订阅 URL，也可以是手动粘贴。 */
 public final class Profile {
 
+    /** 还没有下载成功：只有地址、没有内容，格式未知。 */
+    public static final int TYPE_UNKNOWN = 0;
     public static final int TYPE_CLASH = 1;
     public static final int TYPE_URI = 2;
     public static final int TYPE_SURFBOARD = 3;
@@ -15,7 +17,7 @@ public final class Profile {
     public String content;      // 配置原文
     public int type;
     public long updatedAt;      // 上次成功更新时间
-    public int autoUpdateHours; // 0 = 不自动更新
+    public int autoUpdateMinutes; // 0 = 不自动更新，最小 15 分钟
     public boolean enabled = true;
     public String lastError;
 

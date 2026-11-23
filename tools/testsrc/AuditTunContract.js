@@ -44,4 +44,68 @@ const net = src('io/ghx/vpn/net/Net.java');
 check(net.includes('code < 200 || code >= 300'), 'HTTP error bodies rejected');
 const ip = src('io/ghx/vpn/net/IpInfo.java');
 check((ip.match(/if \(i\.ip\.length\(\) == 0\) return null;/g) || []).length >= 3, 'every IP source validates payload');
+
+// 2026-11-23: URL import must store the address so the ordinary scheduler keeps it fresh.
+const subs = src('io/ghx/vpn/SubsActivity.java');
+const mgr = src('io/ghx/vpn/core/SubscriptionManager.java');
+check(mgr.includes('public Profile addRemote('), 'URL import persists the subscription address');
+check(mgr.includes("p.autoUpdateMinutes = Interval.normalize(autoUpdateMinutes);")
+        || /addRemote[\s\S]{0,900}autoUpdateMinutes = Interval\.normalize\(autoUpdateMinutes\)/.test(mgr),
+        'URL import honours the auto-update interval');
+check(subs.includes('manager.addRemote(name, url, text, autoUpdateMinutes)'), 'URL import routed through addRemote');
+check(subs.includes('manager.addRaw(name, text, 0)'), 'file and paste import stay one-shot');
+check(!/addRemote[\s\S]{0,400}(select\(|TunnelService|Session\.)/.test(mgr), 'saving a URL import never selects or starts the VPN');
+const manifest = fs.readFileSync(path.join(root, 'app/src/main/AndroidManifest.xml'), 'utf8');
+check(manifest.includes("android:versionName=\"1.7\""), "versionName is 1.7");
+check(manifest.includes("android:versionCode=\"17\""), "versionCode is 17");
+
+// 2026-11-23: the profile screen keeps exactly two buttons; one Import entry serves every source.
+check((subs.match(/fillBtn\(/g) || []).length === 3, 'only two buttons plus the factory');
+check(subs.includes('private void importDialog()'), 'Import opens a source chooser');
+check(!subs.includes('"导入文件"') && !subs.includes('"从 URL 导入"') && !subs.includes('"粘贴导入"'),
+        'no leftover per-source buttons');
+check(subs.includes('"从文件导入"') && subs.includes('"从链接导入"') && subs.includes('"粘贴文本"'),
+        'chooser offers file, link and paste');
+check(subs.includes('picker.setType("*/*")'), 'file picker accepts yaml/conf/txt');
+
+// 2026-11-23: auto-update is measured in minutes with a 15-minute floor, and it wakes itself up.
+const interval = src('io/ghx/vpn/core/Interval.java');
+const auto = src('io/ghx/vpn/core/AutoUpdate.java');
+const prefs = src('io/ghx/vpn/core/Prefs.java');
+check(interval.includes('public static final int MIN_MINUTES = 15;'), '15 minutes is the floor');
+check(interval.includes('{0, 15, 30, 60, 180, 360, 720, 1440}'), 'interval ladder starts at 15 minutes');
+check(!/autoUpdateHours\b/.test(subs), 'profile screen no longer talks in hours');
+check(prefs.includes('public int autoUpdateMinutes()') && !prefs.includes('public int autoUpdateHours()'),
+        'preference is stored in minutes');
+check(prefs.includes('K_AUTO_HOURS') && prefs.includes('sp.getInt(K_AUTO_HOURS, 0) * 60'),
+        'existing 1.4 hour settings migrate to minutes');
+check(auto.includes('setAndAllowWhileIdle'), 'short intervals get an alarm, not only app-open checks');
+check(manifest.includes('.svc.SubCheckReceiver') && manifest.includes('io.ghx.vpn.action.SUB_CHECK'),
+        'scheduled check is registered');
+check(!/SubCheckReceiver[\s\S]{0,200}android:exported="true"/.test(manifest), 'scheduled check stays internal');
+check(!/(setAndAllowWhileIdle|RUNNING\.set)[\s\S]{0,200}(startVpn|Session\.|TunnelService\.start)/.test(auto),
+        'auto update never starts the VPN');
+
+// 2026-11-23: a subscription that never downloaded must not claim a format, and empty nodes explain why.
+const profileSrc = src('io/ghx/vpn/core/Profile.java');
+const store = src('io/ghx/vpn/core/ProfileStore.java');
+const nodes = src('io/ghx/vpn/NodesActivity.java');
+const downloader = src('io/ghx/vpn/net/Downloader.java');
+check(profileSrc.includes('public static final int TYPE_UNKNOWN = 0;'), 'unknown format has its own type');
+check(/TYPE_URI\);/.test(mgr) === false, 'adding a URL profile no longer hard-codes v2ray');
+check(mgr.includes('Profile.TYPE_UNKNOWN'), 'a new URL profile starts as unknown');
+check(store.includes('p.type = Profile.TYPE_UNKNOWN'), 'empty subscriptions stored by 1.5 stop showing v2ray');
+check(/TYPE_URI\) return L10n\.t\(this, "v2ray", "v2ray"\)/.test(subs), 'v2ray is only shown for real URI profiles');
+check(subs.includes('NodeKind.uniform(nodes)') && subs.includes('typeLabel(Profile profile, java.util.List'),
+        'the badge is summarised from parsed node protocols');
+check(src('io/ghx/vpn/sub/NodeKind.java').includes('public static String uniform'),
+        'node-protocol summary is a pure, testable helper');
+check(!subs.includes('"v2ray 链接"'), 'review dialog does not call every link list v2ray');
+check(subs.includes('待识别'), 'unknown format is labelled as pending');
+check(subs.includes('尚未更新 · 点「刷新」下载'), 'an undownloaded profile says how to fetch it');
+check(nodes.includes('pendingDownload') && nodes.includes('这个订阅还没下载成功'),
+        'the node list explains an undownloaded subscription');
+check(downloader.includes('下载超时（20 秒内没有响应）') && downloader.includes('域名解析失败')
+        && downloader.includes('HTTPS 握手失败') && downloader.includes('连接被拒绝'),
+        'network failures are explained instead of raw timeouts');
 console.log('AuditTunContract: ' + count + ' checks passed; no VPN/native code executed');

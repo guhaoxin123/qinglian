@@ -31,10 +31,13 @@ import java.util.List;
 import java.util.Set;
 
 import io.ghx.vpn.core.DocumentImport;
+import io.ghx.vpn.core.Interval;
 import io.ghx.vpn.core.Prefs;
 import io.ghx.vpn.core.Profile;
 import io.ghx.vpn.core.Session;
 import io.ghx.vpn.core.SubscriptionManager;
+import io.ghx.vpn.net.Downloader;
+import io.ghx.vpn.net.UrlSource;
 import io.ghx.vpn.sub.SubParser;
 import io.ghx.vpn.svc.TunnelService;
 import io.ghx.vpn.ui.BaseActivity;
@@ -59,7 +62,7 @@ public class SubsActivity extends BaseActivity {
     private boolean resumed;
 
     private enum Phase { IDLE, PICKING, READING, REVIEW, SAVING, SAVED, ERROR }
-    private enum Failure { PERMISSION, READ, CONTENT, SAVE, UNAVAILABLE }
+    private enum Failure { PERMISSION, READ, CONTENT, SAVE, UNAVAILABLE, DOWNLOAD }
 
     /** Retained only in memory across recreation; never put document text or URI in a Bundle. */
     private static final class ImportState {
@@ -69,6 +72,10 @@ public class SubsActivity extends BaseActivity {
         DocumentImport.Problem problem;
         Failure failure;
         String name;
+        /** True when the content came from a URL instead of a file or the clipboard. */
+        boolean remote;
+        /** Source URL for a remote import; empty for file and paste. */
+        String url;
         WeakReference<SubsActivity> owner = new WeakReference<SubsActivity>(null);
 
         void reset() {
@@ -78,6 +85,8 @@ public class SubsActivity extends BaseActivity {
             name = null;
             problem = null;
             failure = null;
+            remote = false;
+            url = null;
         }
 
         void notifyOwner() {
@@ -177,8 +186,8 @@ public class SubsActivity extends BaseActivity {
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         head.addView(title);
         content.addView(head);
-        hint = Ui.text(this, L10n.t(this, "点卡片选用配置 · 支持 Clash / v2ray / Surfboard / ql 混合",
-                "Tap a card to select · Clash / v2ray / Surfboard / ql mixed"), 12f, Ui.TEXT_DIM);
+        hint = Ui.text(this, L10n.t(this, "点卡片选用配置 · 支持 Clash / Surfboard / v2ray / ql 混合",
+                "Tap a card to select · Clash / Surfboard / v2ray / ql mixed"), 12f, Ui.TEXT_DIM);
         hint.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 16));
         content.addView(hint);
         list = Ui.column(this);
@@ -188,28 +197,19 @@ public class SubsActivity extends BaseActivity {
         add.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { addDialog(); }
         });
-        TextView file = fillBtn(L10n.t(this, "导入文件", "Import file"), false);
-        file.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { openDocument(); }
+        TextView importer = fillBtn(L10n.t(this, "导入", "Import"), false);
+        importer.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { importDialog(); }
         });
         LinearLayout.LayoutParams first = new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         first.rightMargin = Ui.dp(this, 8);
         buttons.addView(add, first);
-        buttons.addView(file, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        buttons.addView(importer, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams row = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         row.topMargin = Ui.dp(this, 18);
         content.addView(buttons, row);
-        // Keep paste and the original add-subscription action visible even on narrow screens.
-        TextView paste = fillBtn(L10n.t(this, "粘贴导入", "Paste import"), false);
-        paste.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { localDialog(); }
-        });
-        LinearLayout.LayoutParams pasteLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        pasteLp.topMargin = Ui.dp(this, 8);
-        content.addView(paste, pasteLp);
         importStatus = Ui.text(this, "", 12f, Ui.TEXT_DIM);
         importStatus.setPadding(0, Ui.dp(this, 8), 0, 0);
         importStatus.setVisibility(View.GONE);
@@ -233,8 +233,8 @@ public class SubsActivity extends BaseActivity {
             List<Profile> all = subs.list();
             if (all.isEmpty()) {
                 TextView empty = Ui.text(this, L10n.t(this,
-                        "还没有配置，点下方「添加订阅」、导入文件或粘贴导入",
-                        "No profiles yet. Add a subscription, import a file or paste a configuration below."),
+                        "还没有配置，点下方「添加订阅」或「导入」（文件、链接、粘贴）",
+                        "No profiles yet. Tap Add subscription or Import (file, link, paste) below."),
                         13f, Ui.TEXT_DIM);
                 empty.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
                 list.addView(empty);
@@ -277,15 +277,18 @@ public class SubsActivity extends BaseActivity {
             lp.rightMargin = Ui.dp(this, 6);
             top.addView(on, lp);
         }
-        top.addView(Ui.text(this, typeLabel(profile), 11f, Ui.ACCENT_TEXT));
+        java.util.List<io.ghx.vpn.sub.Node> cardNodes = null;
+        try { cardNodes = subs.nodesOf(profile); } catch (RuntimeException ignored) { }
+        top.addView(Ui.text(this, typeLabel(profile, cardNodes), 11f, Ui.ACCENT_TEXT));
         card.addView(top);
-        int count = -1;
-        try { count = subs.nodesOf(profile).size(); } catch (RuntimeException ignored) { }
+        int count = cardNodes == null ? -1 : cardNodes.size();
         String info;
         if (profile.lastError != null) info = L10n.t(this, "错误：", "Error: ") + L10n.message(this, profile.lastError);
         else if (profile.updatedAt > 0) info = L10n.t(this, "更新于 ", "Updated ") + ago(profile.updatedAt)
                 + (count > 0 ? L10n.t(this, " · " + count + " 节点", " · " + count + " nodes") : "");
-        else info = L10n.t(this, "尚未更新", "Not updated yet");
+        else info = profile.hasUrl()
+                ? L10n.t(this, "尚未更新 · 点「刷新」下载", "Not downloaded yet · tap Refresh")
+                : L10n.t(this, "尚未更新", "Not updated yet");
         TextView sub = Ui.text(this, info, 12f, profile.lastError != null ? Ui.ERR : Ui.TEXT_DIM);
         sub.setPadding(0, Ui.dp(this, 5), 0, Ui.dp(this, 11));
         card.addView(sub);
@@ -313,18 +316,20 @@ public class SubsActivity extends BaseActivity {
             });
             actions.addView(update);
         }
-        TextView auto = action(profile.autoUpdateHours > 0
-                ? L10n.t(this, "自动 " + profile.autoUpdateHours + "h", "Auto " + profile.autoUpdateHours + "h")
-                : L10n.t(this, "不自动", "Manual"), Ui.TEXT_MID);
-        auto.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                int next = profile.autoUpdateHours == 0 ? 6 : profile.autoUpdateHours == 6 ? 12
-                        : profile.autoUpdateHours == 12 ? 24 : 0;
-                try { subs.setAutoUpdateHours(profile.id, next); refresh(); }
-                catch (RuntimeException error) { showError(L10n.t(SubsActivity.this, "保存失败", "Save failed"), error); }
-            }
-        });
-        actions.addView(auto);
+        // 只有带订阅地址的配置才会被自动更新检查，本地文件/粘贴导入不显示该入口。
+        if (profile.hasUrl()) {
+            TextView auto = action(L10n.t(this,
+                    "自动 " + Interval.shortZh(profile.autoUpdateMinutes),
+                    "Auto " + Interval.shortEn(profile.autoUpdateMinutes)), Ui.TEXT_MID);
+            auto.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    int next = Interval.next(profile.autoUpdateMinutes);
+                    try { subs.setAutoUpdateMinutes(profile.id, next); refresh(); }
+                    catch (RuntimeException error) { showError(L10n.t(SubsActivity.this, "保存失败", "Save failed"), error); }
+                }
+            });
+            actions.addView(auto);
+        }
         TextView delete = action(L10n.t(this, "删除", "Delete"), Ui.ERR);
         delete.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -354,11 +359,19 @@ public class SubsActivity extends BaseActivity {
         return card;
     }
 
-    private String typeLabel(Profile profile) {
+    /** 卡片右上角的格式标签：按真正解析出来的协议判断，别再让人以为 ql 订阅被当成 v2ray。 */
+    private String typeLabel(Profile profile, java.util.List<io.ghx.vpn.sub.Node> nodes) {
         if (profile.type == Profile.TYPE_CLASH) return L10n.t(this, "Clash", "Clash");
         if (profile.type == Profile.TYPE_SURFBOARD) return L10n.t(this, "Surfboard", "Surfboard");
+        if (nodes != null && !nodes.isEmpty()) {
+            String only = io.ghx.vpn.sub.NodeKind.uniform(nodes);
+            if (only != null) return only;
+            return L10n.t(this, "ql 混合", "ql mixed");
+        }
         if (profile.type == Profile.TYPE_QL) return L10n.t(this, "ql 混合", "ql mixed");
-        return L10n.t(this, "v2ray", "v2ray");
+        if (profile.type == Profile.TYPE_URI) return L10n.t(this, "v2ray", "v2ray");
+        // 还没下载成功：别装作知道格式（以前默认写 v2ray，看起来像识别错了）。
+        return L10n.t(this, "待识别", "Unknown");
     }
 
     private TextView action(String label, int color) {
@@ -421,6 +434,32 @@ public class SubsActivity extends BaseActivity {
         return box;
     }
 
+    /**
+     * 「导入」入口：文件、链接、粘贴三种来源共用同一套识别与预览，
+     * 都支持 Clash / Surfboard / v2ray / ql 混合四种格式。
+     */
+    private void importDialog() {
+        if (importBusy()) return;
+        String[] items = new String[]{
+                L10n.t(this, "从文件导入", "From file"),
+                L10n.t(this, "从链接导入", "From link"),
+                L10n.t(this, "粘贴文本", "Paste text")};
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(L10n.t(this, "导入配置（Clash / Surfboard / v2ray / ql）",
+                        "Import a profile (Clash / Surfboard / v2ray / ql)"))
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        if (which == 0) openDocument();
+                        else if (which == 1) urlDialog();
+                        else localDialog();
+                    }
+                })
+                .setNegativeButton(L10n.t(this, "取消", "Cancel"), null)
+                .create();
+        dialog.show();
+        Ui.tintDialog(dialog);
+    }
+
     /** Preserve the original Add subscription shortcut and behavior. */
     private void addDialog() {
         LinearLayout box = dialogBox();
@@ -449,7 +488,7 @@ public class SubsActivity extends BaseActivity {
                             String label = name.getText().toString().trim();
                             if (label.length() == 0) label = L10n.t(SubsActivity.this,
                                     "订阅 " + (subs.list().size() + 1), "Subscription " + (subs.list().size() + 1));
-                            Profile profile = subs.add(label, value, new Prefs(SubsActivity.this).autoUpdateHours());
+                            Profile profile = subs.add(label, value, new Prefs(SubsActivity.this).autoUpdateMinutes());
                             subs.select(profile.id);
                             refresh();
                             doRefresh(profile);
@@ -530,6 +569,40 @@ public class SubsActivity extends BaseActivity {
         }
     }
 
+    /** URL import shares the document import state machine: fetch, inspect, review, save. */
+    private static void startUrlRead(final ImportState state, final int generation, final Context app,
+            final String url, final String name) {
+        try {
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    DocumentImport.Preview preview = null;
+                    Failure failure = null;
+                    DocumentImport.Problem problem = null;
+                    String label = name;
+                    try {
+                        Downloader.Result result = Downloader.fetch(url);
+                        preview = DocumentImport.inspect(result.body);
+                        if (label == null || label.trim().length() == 0) {
+                            String guessed = UrlSource.guessName(result.finalUrl);
+                            if (guessed != null) label = guessed;
+                        }
+                    } catch (DocumentImport.ImportException error) {
+                        failure = Failure.CONTENT;
+                        problem = error.problem;
+                    } catch (IOException error) { failure = Failure.DOWNLOAD; }
+                    catch (RuntimeException error) { failure = Failure.DOWNLOAD; }
+                    catch (OutOfMemoryError error) {
+                        failure = Failure.CONTENT;
+                        problem = DocumentImport.Problem.TOO_LARGE;
+                    }
+                    finishRead(state, generation, preview, label, failure, problem);
+                }
+            }, "url-read").start();
+        } catch (RuntimeException error) {
+            finishRead(state, generation, null, null, Failure.UNAVAILABLE, null);
+        }
+    }
+
     private static String displayName(ContentResolver resolver, Uri uri) {
         // Metadata is optional and untrusted; never fall back to a URI/path containing secrets.
         try (Cursor cursor = resolver.query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
@@ -585,7 +658,7 @@ public class SubsActivity extends BaseActivity {
         Ui.tintControl(body);
         box.addView(body);
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(L10n.t(this, "粘贴导入", "Paste import"))
+                .setTitle(L10n.t(this, "粘贴文本", "Paste text"))
                 .setView(box)
                 .setNegativeButton(L10n.t(this, "取消", "Cancel"), null)
                 .setPositiveButton(L10n.t(this, "下一步", "Review"), new DialogInterface.OnClickListener() {
@@ -618,13 +691,78 @@ public class SubsActivity extends BaseActivity {
         Ui.tintDialog(dialog);
     }
 
+    /** 从 URL 导入：下载 → 预览 → 保存为订阅并按设置自动更新（不选用、不启动 VPN）。 */
+    private void urlDialog() {
+        if (importBusy()) return;
+        LinearLayout box = dialogBox();
+        final EditText name = nameInput(null);
+        box.addView(name);
+        final EditText link = new EditText(this);
+        link.setHint("https://example.com/subscription.yaml");
+        link.setTextColor(Ui.TEXT);
+        link.setHintTextColor(Ui.TEXT_DIM);
+        link.setMinLines(1);
+        link.setMaxLines(3);
+        link.setGravity(Gravity.TOP);
+        link.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_URI
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        link.setSaveEnabled(false);
+        Ui.tintControl(link);
+        box.addView(link);
+        int minutes = new Prefs(this).autoUpdateMinutes();
+        TextView note = Ui.text(this, L10n.t(this, "支持 Clash / Surfboard / v2ray / ql 混合。", "Clash / Surfboard / v2ray / ql mixed supported.") + "\n"
+                + (minutes > 0
+                        ? L10n.t(this, "保存为订阅，每 " + Interval.labelZh(minutes) + "自动更新一次（最短 15 分钟，可在设置里改或关闭）；保存后不会选用配置或启动 VPN。",
+                                "Saved as a subscription that refreshes every " + Interval.labelEn(minutes)
+                                        + " (15 min minimum; change or disable in Settings); no profile switch or VPN start.")
+                        : L10n.t(this, "保存为订阅，但自动更新当前已关闭（可在设置里开启）；不会选用配置或启动 VPN。",
+                                "Saved as a subscription, but auto-update is off in Settings; no profile switch or VPN start.")),
+                12f, Ui.TEXT_DIM);
+        note.setPadding(0, Ui.dp(this, 8), 0, 0);
+        box.addView(note);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(L10n.t(this, "从链接导入", "Import from link"))
+                .setView(box)
+                .setNegativeButton(L10n.t(this, "取消", "Cancel"), null)
+                .setPositiveButton(L10n.t(this, "下一步", "Review"), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        if (pending.phase != Phase.IDLE) return;
+                        String value = UrlSource.normalize(link.getText().toString());
+                        if (value == null) {
+                            Toast.makeText(SubsActivity.this, L10n.t(SubsActivity.this,
+                                    "链接需以 http:// 或 https:// 开头，且不能包含空格",
+                                    "The link must start with http:// or https:// and contain no spaces"),
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        String label = name.getText().toString().trim();
+                        if (label.length() == 0) {
+                            String guessed = UrlSource.guessName(value);
+                            label = guessed == null
+                                    ? L10n.t(SubsActivity.this, "本地配置", "Local profile") : guessed;
+                        }
+                        final ImportState state = pending;
+                        final int generation = ++state.generation;
+                        state.remote = true;
+                        state.url = value;
+                        state.phase = Phase.READING;
+                        startUrlRead(state, generation, getApplicationContext(), value, label);
+                        renderImport();
+                    }
+                }).show();
+        Ui.tintDialog(dialog);
+    }
+
     private void renderImport() {
         if (pending == null || !resumed || isFinishing() || isDestroyed()) return;
         if (importStatus != null) {
             boolean working = pending.phase == Phase.READING || pending.phase == Phase.SAVING;
             importStatus.setVisibility(working ? View.VISIBLE : View.GONE);
             if (working) importStatus.setText(pending.phase == Phase.READING
-                    ? L10n.t(this, "正在读取并检查文件…", "Reading and checking configuration…")
+                    ? (pending.remote
+                            ? L10n.t(this, "正在下载并检查链接…", "Downloading and checking the link…")
+                            : L10n.t(this, "正在读取并检查文件…", "Reading and checking configuration…"))
                     : L10n.t(this, "正在保存配置…", "Saving profile…"));
         }
         if (pending.phase == Phase.REVIEW && reviewDialog == null) showReview();
@@ -633,10 +771,15 @@ public class SubsActivity extends BaseActivity {
             pending.reset();
             Toast.makeText(this, error, Toast.LENGTH_LONG).show();
         } else if (pending.phase == Phase.SAVED) {
+            boolean remote = pending.remote;
             pending.reset();
             refresh();
-            Toast.makeText(this, L10n.t(this, "配置已导入；未切换配置或启动 VPN",
-                    "Profile imported. No profile switch or VPN start was requested."), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, remote
+                    ? L10n.t(this, "订阅已导入，会按设置自动更新；未选用配置或启动 VPN",
+                            "Subscription imported and kept up to date; no profile switch or VPN start was requested.")
+                    : L10n.t(this, "配置已导入；未切换配置或启动 VPN",
+                            "Profile imported. No profile switch or VPN start was requested."),
+                    Toast.LENGTH_LONG).show();
         }
     }
 
@@ -654,13 +797,22 @@ public class SubsActivity extends BaseActivity {
         String formatName = format == SubParser.FMT_CLASH ? L10n.t(this, "Clash YAML", "Clash YAML")
                 : format == SubParser.FMT_SURFBOARD ? L10n.t(this, "Surfboard", "Surfboard")
                 : format == SubParser.FMT_QL ? L10n.t(this, "ql 混合链接", "ql mixed links")
-                : L10n.t(this, "v2ray 链接", "v2ray links");
+                : L10n.t(this, "节点链接", "Node links");
         int count = state.preview.nodeCount;
+        int remoteMinutes = new Prefs(this).autoUpdateMinutes();
+        String keep = state.remote
+                ? (remoteMinutes > 0
+                        ? L10n.t(this, "保存为订阅，每 " + Interval.labelZh(remoteMinutes) + "自动更新；不选用、不重载内核、不启动 VPN。",
+                                "Saved as a subscription refreshing every " + Interval.labelEn(remoteMinutes)
+                                        + ". Does not select it, reload the core or start the VPN.")
+                        : L10n.t(this, "保存为订阅，但设置里的自动更新已关闭；不选用、不重载内核、不启动 VPN。",
+                                "Saved as a subscription, but auto-update is off in Settings. Does not select it, reload the core or start the VPN."))
+                : L10n.t(this, "只保存配置，不选用、不重载内核、不启动 VPN。",
+                        "Only saves this profile. Does not select it, reload the core or start the VPN.");
         String summary = L10n.t(this, "格式：", "Format: ") + formatName + "\n"
                 + (count >= 0 ? L10n.t(this, "可识别节点：" + count, "Recognized nodes: " + count)
                 : L10n.t(this, "节点数：暂无法确定（提供器或高级 YAML）", "Node count: unknown (providers or advanced YAML)"))
-                + "\n\n" + L10n.t(this, "只保存配置，不选用、不重载内核、不启动 VPN。",
-                        "Only saves this profile. Does not select it, reload the core or start the VPN.");
+                + "\n\n" + keep;
         if (format == SubParser.FMT_CLASH) summary += "\n" + L10n.t(this,
                 "仅做基础检查，不代表已通过完整 YAML/内核校验；不会下载提供器。",
                 "Basic checks only, not full YAML/core validation. Providers are not downloaded.");
@@ -690,7 +842,8 @@ public class SubsActivity extends BaseActivity {
                         state.phase = Phase.SAVING;
                         reviewDialog = null;
                         reviewName = null;
-                        saveDocument(state, generation, getApplicationContext(), label, state.preview.text);
+                        saveDocument(state, generation, getApplicationContext(), label,
+                                state.preview.text, state.url, new Prefs(SubsActivity.this).autoUpdateMinutes());
                         renderImport();
                     }
                 }).create();
@@ -707,15 +860,18 @@ public class SubsActivity extends BaseActivity {
     }
 
     private static void saveDocument(final ImportState state, final int generation, final Context app,
-            final String name, final String text) {
+            final String name, final String text, final String url, final int autoUpdateMinutes) {
         try {
             new Thread(new Runnable() {
                 @Override public void run() {
                     boolean saved = false;
                     try {
-                        // This is the ONLY persistence boundary for file/paste import. In particular,
+                        // This is the ONLY persistence boundary for file/paste/URL import. In particular,
                         // do not call select(), use(), Session, TunnelService, refresh(url) or intents.
-                        new SubscriptionManager(app).addRaw(name, text, 0);
+                        // A URL import keeps its address so the ordinary scheduler updates it later.
+                        SubscriptionManager manager = new SubscriptionManager(app);
+                        if (url == null || url.length() == 0) manager.addRaw(name, text, 0);
+                        else manager.addRemote(name, url, text, autoUpdateMinutes);
                         saved = true;
                     } catch (RuntimeException ignored) { }
                     catch (OutOfMemoryError ignored) { }
@@ -746,13 +902,17 @@ public class SubsActivity extends BaseActivity {
         if (pending.failure == Failure.SAVE) return L10n.t(this,
                 "无法完成保存。请检查配置列表及可用空间，确认后再重试。",
                 "Could not complete the save. Check the profile list and free storage before retrying.");
+        if (pending.failure == Failure.DOWNLOAD) return L10n.t(this,
+                "无法下载该链接。请检查网络、链接是否有效（需以 http:// 或 https:// 开头），然后重试。",
+                "Could not download the link. Check the network and that the URL is valid (http:// or https://), then retry.");
         if (pending.failure == Failure.UNAVAILABLE) return L10n.t(this,
                 "暂时无法开始导入，请稍后重试。", "Cannot start importing right now. Please try again later.");
         if (pending.failure == Failure.CONTENT && pending.problem != null) {
             switch (pending.problem) {
                 case TOO_LARGE: return L10n.t(this,
                         "文件或解码后文本超过 8 MiB，请使用较小的配置。", "The file or decoded text exceeds 8 MiB. Use a smaller configuration.");
-                case EMPTY: return L10n.t(this, "文件或粘贴内容为空。", "The document or pasted text is empty.");
+                case EMPTY: return L10n.t(this, "文件、粘贴内容或链接返回的内容为空。",
+                        "The document, pasted text or the link's response is empty.");
                 case ENCODING: return L10n.t(this,
                         "文本编码无效或不受支持。请使用 UTF-8，或带 BOM 的 UTF-16。",
                         "Invalid or unsupported encoding. Use UTF-8, or UTF-16 with a BOM.");
@@ -825,8 +985,8 @@ public class SubsActivity extends BaseActivity {
         intent.setData(null);
         intent.setClipData(null);
         if (payload) Toast.makeText(this, L10n.t(this,
-                "请使用「导入文件」或「粘贴导入」并确认后保存；不会自动导入传入内容。",
-                "Use Import file or Paste import, then confirm to save. Incoming content is not imported automatically."),
+                "请使用「导入」（文件、链接、粘贴）或「添加订阅」并确认后保存；不会自动导入传入内容。",
+                "Use Import (file, link, paste) or Add subscription, then confirm to save. Incoming content is not imported automatically."),
                 Toast.LENGTH_LONG).show();
     }
 

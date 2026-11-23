@@ -54,6 +54,8 @@ public class NodesActivity extends BaseActivity {
     private String testStatus = "";
 
     private List<Node> all = new ArrayList<Node>();
+    /** 当前配置是否只有一个地址、还没有内容（订阅没下载成功）。 */
+    private boolean pendingDownload;
     private String keyword = "";
     private String region = ALL;
 
@@ -168,8 +170,14 @@ public class NodesActivity extends BaseActivity {
             public void run() {
                 List<Node> got;
                 boolean failed = false;
+                boolean pending = false;
                 try {
-                    got = new SubscriptionManager(app).collectNodes();
+                    SubscriptionManager sm = new SubscriptionManager(app);
+                    got = sm.collectNodes();
+                    io.ghx.vpn.core.Profile act = sm.active();
+                    // 只有地址、没有内容：这条订阅还没下载成功，空列表不是解析失败。
+                    pending = act != null && act.hasUrl()
+                            && (act.content == null || act.content.length() == 0);
                 } catch (Exception e) {
                     got = new ArrayList<Node>();
                     failed = true;
@@ -177,11 +185,13 @@ public class NodesActivity extends BaseActivity {
                 if (Thread.currentThread().isInterrupted()) return;
                 final List<Node> f = got;
                 final boolean loadFailed = failed;
+                final boolean pendingDownloadNow = pending;
                 ui.post(new Runnable() {
                     @Override
                     public void run() {
                         if (destroyed || isFinishing()) return;
                         all = f;
+                        pendingDownload = pendingDownloadNow;
                         if (loadFailed) testStatus = L10n.t(NodesActivity.this,
                                 "节点加载失败，请稍后重试", "Could not load nodes. Try again later.");
                         renderTabs();
@@ -277,9 +287,12 @@ public class NodesActivity extends BaseActivity {
                         shown.size(), all.size());
         countView.setText(testStatus.length() == 0 ? count : count + "\n" + testStatus);
         if (shown.isEmpty()) {
-            TextView e = Ui.text(this, all.isEmpty()
-                    ? L10n.t(this, "当前配置没有解析到节点", "No nodes found in the current configuration")
-                    : L10n.t(this, "没有匹配的节点", "No matching nodes"), 13f, Ui.TEXT_DIM);
+            String empty = all.isEmpty()
+                    ? (pendingDownload
+                        ? L10n.t(this, "这个订阅还没下载成功，回到配置页点「刷新」", "This subscription has not downloaded yet; tap Refresh on the profile")
+                        : L10n.t(this, "当前配置没有解析到节点", "No nodes found in the current configuration"))
+                    : L10n.t(this, "没有匹配的节点", "No matching nodes");
+            TextView e = Ui.text(this, empty, 13f, Ui.TEXT_DIM);
             e.setPadding(0, Ui.dp(this, 16), 0, 0);
             grid.addView(e);
             return;

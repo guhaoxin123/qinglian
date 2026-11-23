@@ -108,6 +108,24 @@ public final class AuditSubTest {
                 SubParser.detect(SubParser.unwrapBase64(B64.encodeUtf8(B64.encodeUtf8(ql3)))) == SubParser.FMT_QL);
         check("ql: unknown text is still unknown",
                 SubParser.detect("ql://not a link at all") == SubParser.FMT_UNKNOWN);
+
+        // 2026-11-23: the card badge is summarised from real node protocols, not from a guess.
+        java.util.List<Node> mixedNodes = SubParser.parseNodes(
+                "vmess://" + B64.encodeUtf8("{\"v\":\"2\",\"ps\":\"a\",\"add\":\"a.invalid\",\"port\":\"443\","
+                        + "\"id\":\"11111111-1111-1111-1111-111111111111\",\"aid\":\"0\",\"net\":\"ws\"}")
+                        + "\ntrojan://pass@b.invalid:443#b", SubParser.FMT_URI);
+        check("label: mixed links parse into different protocols", mixedNodes.size() == 2
+                && !mixedNodes.get(0).type.equals(mixedNodes.get(1).type));
+        check("label: mixed protocols have no single kind",
+                io.ghx.vpn.sub.NodeKind.uniform(mixedNodes) == null);
+        check("label: a single protocol is named",
+                "trojan".equals(io.ghx.vpn.sub.NodeKind.uniform(
+                        SubParser.parseNodes("trojan://pass@b.invalid:443#b", SubParser.FMT_URI))));
+        check("label: an empty list has no kind",
+                io.ghx.vpn.sub.NodeKind.uniform(new java.util.ArrayList<Node>()) == null);
+        check("label: a type-less node is not summarised",
+                io.ghx.vpn.sub.NodeKind.uniform(
+                        java.util.Arrays.asList(new Node(null, "x", "h", 1))) == null);
         System.out.println("AuditSubTest: " + checks + " checks passed");
     }
 }

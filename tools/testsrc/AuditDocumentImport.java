@@ -1,6 +1,7 @@
 import io.ghx.vpn.core.DocumentImport;
 import io.ghx.vpn.core.DocumentImport.ImportException;
 import io.ghx.vpn.core.DocumentImport.Problem;
+import io.ghx.vpn.net.UrlSource;
 import io.ghx.vpn.sub.B64;
 import io.ghx.vpn.sub.SubParser;
 
@@ -154,6 +155,15 @@ public final class AuditDocumentImport {
         check("ql double base64 imports",
                 DocumentImport.inspect(B64.encodeUtf8(B64.encodeUtf8(qlMix))).nodeCount == 3);
         check("Surfboard", DocumentImport.inspect("[Proxy]\nExample = trojan, example.invalid, 443, password=test").nodeCount == 1);
+        // One import path serves file, link and paste, so every supported format must pass it.
+        DocumentImport.Preview board = DocumentImport.inspect(
+                "[General]\nloglevel = notify\n[Proxy]\nHK = ss, hk.example.invalid, 443, encrypt-method=aes-128-gcm, password=x\n[Rule]\nFINAL,Proxy");
+        check("Surfboard format", board.format == SubParser.FMT_SURFBOARD);
+        check("Surfboard node count", board.nodeCount == 1);
+        check("v2ray link list format", DocumentImport.inspect(
+                "vless://u@a.example.invalid:443?security=tls#A\nvmess://" + B64.encodeUtf8("{\"v\":\"2\",\"ps\":\"B\",\"add\":\"b.example.invalid\",\"port\":\"443\",\"id\":\"u\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\"}")).format == SubParser.FMT_URI);
+        check("Clash yaml files import as Clash", DocumentImport.inspect(
+                "port: 7890\nproxies:\n  - name: HK\n    type: ss\n    server: hk.example.invalid\n    port: 443\n    cipher: aes-128-gcm\n    password: x").format == SubParser.FMT_CLASH);
         rejectsText("empty paste", " \n", Problem.EMPTY);
         rejectsText("unpaired surrogate paste", "proxies:\n\ud800", Problem.ENCODING);
         rejectsText("unknown text", "not: a configuration", Problem.FORMAT);
@@ -215,6 +225,30 @@ public final class AuditDocumentImport {
         char[] expanded = new char[DocumentImport.MAX_BYTES / 3 + 1];
         Arrays.fill(expanded, '中');
         rejectsText("decoded UTF-8 bound", new String(expanded), Problem.TOO_LARGE);
+
+        // URL import: only http/https, and a safe default name.
+        check("url: https accepted", UrlSource.normalize(" https://example.invalid/a/ql.txt ").equals("https://example.invalid/a/ql.txt"));
+        check("url: http accepted", UrlSource.normalize("HTTP://example.invalid/x").equals("HTTP://example.invalid/x"));
+        check("url: query and fragment kept", UrlSource.normalize("https://example.invalid/a?b=1#c").equals("https://example.invalid/a?b=1#c"));
+        check("url: empty rejected", UrlSource.normalize("   ") == null);
+        check("url: null rejected", UrlSource.normalize(null) == null);
+        check("url: other scheme rejected", UrlSource.normalize("ftp://example.invalid/a") == null);
+        check("url: scheme-less rejected", UrlSource.normalize("example.invalid/a") == null);
+        check("url: missing host rejected", UrlSource.normalize("https:///path") == null);
+        check("url: inner space rejected", UrlSource.normalize("https://example.invalid/a b") == null);
+        check("url: backslash rejected", UrlSource.normalize("https://example.invalid\\a") == null);
+        StringBuilder longUrl = new StringBuilder("https://example.invalid/");
+        for (int i = 0; i < UrlSource.MAX_URL; i++) longUrl.append('a');
+        check("url: over-long rejected", UrlSource.normalize(longUrl.toString()) == null);
+        check("url name: file stem", "ql".equals(UrlSource.guessName("https://example.invalid/sub/ql.txt")));
+        check("url name: host only", "example.invalid".equals(UrlSource.guessName("https://example.invalid/")));
+        check("url name: host without path", "example.invalid".equals(UrlSource.guessName("https://example.invalid")));
+        check("url name: port dropped", "example.invalid".equals(UrlSource.guessName("https://example.invalid:8443/a/")));
+        check("url name: percent decoded", "My List".equals(UrlSource.guessName("https://example.invalid/x/My%20List.yaml?t=1")));
+        check("url name: invalid link has no name", UrlSource.guessName("ftp://nope") == null);
+        StringBuilder longName = new StringBuilder("https://example.invalid/");
+        for (int i = 0; i < 200; i++) longName.append('n');
+        check("url name: length capped", UrlSource.guessName(longName.toString()).length() <= 40);
         System.out.println("AuditDocumentImport: " + checks + " checks passed");
     }
 }
