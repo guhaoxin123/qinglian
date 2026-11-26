@@ -9,10 +9,21 @@ public final class SubParser {
     public static final int FMT_CLASH = 1;
     public static final int FMT_URI = 2;
     public static final int FMT_SURFBOARD = 3;
-    /** ql 混合：同一段文本里混排 2 个以上不同协议的节点链接。 */
+    /** 显式 ql 包装或同一行混排多个协议链接；不同协议本身不等于 ql 格式。 */
     public static final int FMT_QL = 4;
 
     private SubParser() {
+    }
+
+    /** A format badge is deliberately independent of the node protocols. */
+    public static String formatLabel(int format, boolean english) {
+        switch (format) {
+            case FMT_CLASH: return "Clash";
+            case FMT_URI: return "v2ray";
+            case FMT_SURFBOARD: return "Surfboard";
+            case FMT_QL: return english ? "ql mixed" : "ql 混合";
+            default: return english ? "Unknown" : "待识别";
+        }
     }
 
     /** 识别格式。content 为已解 base64 的文本。 */

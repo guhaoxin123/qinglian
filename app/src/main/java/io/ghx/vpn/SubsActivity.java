@@ -279,7 +279,7 @@ public class SubsActivity extends BaseActivity {
         }
         java.util.List<io.ghx.vpn.sub.Node> cardNodes = null;
         try { cardNodes = subs.nodesOf(profile); } catch (RuntimeException ignored) { }
-        top.addView(Ui.text(this, typeLabel(profile, cardNodes), 11f, Ui.ACCENT_TEXT));
+        top.addView(Ui.text(this, typeLabel(profile), 11f, Ui.ACCENT_TEXT));
         card.addView(top);
         int count = cardNodes == null ? -1 : cardNodes.size();
         String info;
@@ -359,19 +359,10 @@ public class SubsActivity extends BaseActivity {
         return card;
     }
 
-    /** 卡片右上角的格式标签：按真正解析出来的协议判断，别再让人以为 ql 订阅被当成 v2ray。 */
-    private String typeLabel(Profile profile, java.util.List<io.ghx.vpn.sub.Node> nodes) {
-        if (profile.type == Profile.TYPE_CLASH) return L10n.t(this, "Clash", "Clash");
-        if (profile.type == Profile.TYPE_SURFBOARD) return L10n.t(this, "Surfboard", "Surfboard");
-        if (nodes != null && !nodes.isEmpty()) {
-            String only = io.ghx.vpn.sub.NodeKind.uniform(nodes);
-            if (only != null) return only;
-            return L10n.t(this, "ql 混合", "ql mixed");
-        }
-        if (profile.type == Profile.TYPE_QL) return L10n.t(this, "ql 混合", "ql mixed");
-        if (profile.type == Profile.TYPE_URI) return L10n.t(this, "v2ray", "v2ray");
-        // 还没下载成功：别装作知道格式（以前默认写 v2ray，看起来像识别错了）。
-        return L10n.t(this, "待识别", "Unknown");
+    /** 格式标签只读已识别的格式；节点协议数量不改变订阅格式。 */
+    private String typeLabel(Profile profile) {
+        return L10n.t(this, io.ghx.vpn.sub.SubParser.formatLabel(profile.type, false),
+                io.ghx.vpn.sub.SubParser.formatLabel(profile.type, true));
     }
 
     private TextView action(String label, int color) {

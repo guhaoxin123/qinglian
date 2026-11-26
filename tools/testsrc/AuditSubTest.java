@@ -109,7 +109,7 @@ public final class AuditSubTest {
         check("ql: unknown text is still unknown",
                 SubParser.detect("ql://not a link at all") == SubParser.FMT_UNKNOWN);
 
-        // 2026-11-23: the card badge is summarised from real node protocols, not from a guess.
+        // Protocol summaries are not subscription-format labels.
         java.util.List<Node> mixedNodes = SubParser.parseNodes(
                 "vmess://" + B64.encodeUtf8("{\"v\":\"2\",\"ps\":\"a\",\"add\":\"a.invalid\",\"port\":\"443\","
                         + "\"id\":\"11111111-1111-1111-1111-111111111111\",\"aid\":\"0\",\"net\":\"ws\"}")
@@ -126,6 +126,19 @@ public final class AuditSubTest {
         check("label: a type-less node is not summarised",
                 io.ghx.vpn.sub.NodeKind.uniform(
                         java.util.Arrays.asList(new Node(null, "x", "h", 1))) == null);
+        check("format: mixed ordinary URIs remain v2ray",
+                "v2ray".equals(SubParser.formatLabel(SubParser.detect(uris), false)));
+        check("format: base64 mixed ordinary URIs remain v2ray",
+                "v2ray".equals(SubParser.formatLabel(SubParser.detect(decodedUris), true)));
+        check("format: one trojan remains URI format, not protocol badge",
+                "v2ray".equals(SubParser.formatLabel(SubParser.detect("trojan://p@b.invalid:443#b"), false)));
+        check("format: explicit ql wrapper stays ql",
+                "ql 混合".equals(SubParser.formatLabel(SubParser.detect(qlWrapped), false)));
+        check("format: English ql label", "ql mixed".equals(SubParser.formatLabel(SubParser.FMT_QL, true)));
+        check("format: Clash label preserved", "Clash".equals(SubParser.formatLabel(SubParser.FMT_CLASH, false)));
+        check("format: Surfboard label preserved", "Surfboard".equals(SubParser.formatLabel(SubParser.FMT_SURFBOARD, false)));
+        check("format: unrecognized URL has no guessed label", "待识别".equals(SubParser.formatLabel(0, false)));
+        check("format: unknown English label", "Unknown".equals(SubParser.formatLabel(-1, true)));
         System.out.println("AuditSubTest: " + checks + " checks passed");
     }
 }

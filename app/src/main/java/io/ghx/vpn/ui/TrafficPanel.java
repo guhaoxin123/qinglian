@@ -6,17 +6,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import io.ghx.vpn.core.Session;
 import org.json.JSONObject;
-import java.net.HttpURLConnection;
-import java.net.Proxy;
-import java.net.URL;
-import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
+import io.ghx.vpn.core.TrafficStats;
 import java.util.Locale;
 
 /** Read-only controller statistics. Never loads or starts the kernel. */
@@ -25,8 +20,9 @@ public final class TrafficPanel extends LinearLayout {
     private final TextView speed, connections, totals, state;
     private final Graph graph;
     private boolean active, busy;
-    private long generation, lastTime, lastUp, lastDown, session = -1;
-    private volatile HttpURLConnection request;
+    private long generation, session = -1;
+    private final TrafficStats.Reader reader = new TrafficStats.Reader();
+    private volatile Thread worker;
     private final Runnable tick = new Runnable() { public void run() { poll(); } };
     public TrafficPanel(Context c) {
         super(c); setOrientation(VERTICAL);
@@ -45,37 +41,59 @@ public final class TrafficPanel extends LinearLayout {
         LayoutParams left=new LayoutParams(0,-1,1);left.rightMargin=Ui.dp(c,12);
         row.addView(a,left);row.addView(b,new LayoutParams(0,-1,1));addView(row);
     }
-    public void resume() { if(active)return;active=true;generation++;lastTime=0;handler.post(tick); }
-    public void pause() { active=false;generation++;lastTime=0;handler.removeCallbacks(tick);HttpURLConnection c=request;if(c!=null)c.disconnect(); }
-    private void schedule(){if(active)handler.postDelayed(tick,1000);}
+    public void resume() {
+        if (active) return;
+        active=true; generation++; graph.clear(); handler.post(tick);
+    }
+    public void pause() {
+        active=false; generation++; handler.removeCallbacks(tick); reader.cancel();
+        Thread w=worker; if(w!=null)w.interrupt();
+    }
+    private void schedule(){if(active){handler.removeCallbacks(tick);handler.postDelayed(tick,1000);}}
     private void poll(){
-        if(!active)return;if(busy){schedule();return;}
-        if(!Session.isKernelRunning()) {lastTime=0;session=-1;graph.clear();speed.setText("↑ 0 B/s     ↓ 0 B/s");connections.setText("0");totals.setText("↑ 0 B\n↓ 0 B");state.setText(L10n.t(getContext(),"未连接","Disconnected"));schedule();return;}
-        busy=true;final long g=generation, epoch=Session.trafficEpoch();
-        new Thread(new Runnable(){public void run(){
-            long up=0,down=0;int count=0;boolean ok=false;HttpURLConnection c=null;
+        if(!active)return;
+        if(busy){schedule();return;}
+        if(!Session.isKernelRunning()) {
+            session=-1;graph.clear();speed.setText("↑ 0 B/s     ↓ 0 B/s");connections.setText("0");
+            totals.setText("↑ 0 B\n↓ 0 B");state.setText(L10n.t(getContext(),"未连接","Disconnected"));schedule();return;
+        }
+        busy=true;final long g=generation, epoch=Session.trafficEpoch(), ticket=reader.ticket();
+        worker=new Thread(new Runnable(){public void run(){
+            TrafficStats.Sample sample=null;int count=-1;
             try {
-                c=(HttpURLConnection)new URL("http://127.0.0.1:9090/connections").openConnection(Proxy.NO_PROXY);request=c;
-                c.setConnectTimeout(1200);c.setReadTimeout(1200);c.setInstanceFollowRedirects(false);
-                if(c.getResponseCode()!=200)throw new Exception("HTTP");
-                ByteArrayOutputStream out=new ByteArrayOutputStream();long deadline=SystemClock.elapsedRealtime()+2500;
-                try(InputStream in=c.getInputStream()){byte[] buf=new byte[4096];int n;while((n=in.read(buf))!=-1){if(out.size()+n>4*1024*1024||SystemClock.elapsedRealtime()>deadline)throw new Exception("limit");out.write(buf,0,n);}}
-                JSONObject j=new JSONObject(out.toString("UTF-8"));up=j.getLong("uploadTotal");down=j.getLong("downloadTotal");
-                if(!j.has("connections"))throw new Exception("missing connections");
-                count=j.isNull("connections")?0:j.getJSONArray("connections").length();if(up<0||down<0)throw new Exception("counter");ok=true;
-            }catch(Exception ignored){}finally{if(c!=null)c.disconnect();request=null;}
-            final long u=up,d=down;final int n=count;final boolean valid=ok;
-            handler.post(new Runnable(){public void run(){busy=false;
-                if(!active||g!=generation)return;
-                if(!Session.isKernelRunning()||epoch!=Session.trafficEpoch()){lastTime=0;schedule();return;}
-                if(!valid){lastTime=0;speed.setText("↑ —     ↓ —");connections.setText("—");totals.setText("↑ —\n↓ —");state.setText(L10n.t(getContext(),"统计暂不可用","Statistics unavailable"));graph.clear();schedule();return;}
-                long now=SystemClock.elapsedRealtime();double us=0,ds=0;
-                if(session==epoch&&lastTime>0&&now>lastTime&&u>=lastUp&&d>=lastDown){us=(u-lastUp)*1000.0/(now-lastTime);ds=(d-lastDown)*1000.0/(now-lastTime);}else graph.clear();
-                session=epoch;lastTime=now;lastUp=u;lastDown=d;
-                speed.setText("↑ "+format(us)+"/s     ↓ "+format(ds)+"/s");connections.setText(String.valueOf(n));totals.setText("↑ "+format(u)+"\n↓ "+format(d));
-                state.setText(L10n.t(getContext(),"代理内核累计 · 曲线最近60次采样","Core totals · Last 60 samples"));graph.add(us,ds);schedule();
+                // Primary counters are independent of REST availability and its rounding.
+                sample=Session.queryTraffic(epoch);
+            }catch(Exception | LinkageError ignored) { }
+            try {
+                if(Thread.currentThread().isInterrupted())throw new InterruptedException();
+                JSONObject json=new JSONObject(reader.read(Session.statisticsEndpoint(),ticket));
+                java.util.Map<String,Object> fields=new java.util.LinkedHashMap<String,Object>();
+                if(json.has("connections")) {
+                    if(json.isNull("connections")) fields.put("connections",null);
+                    else fields.put("connections",java.util.Collections.nCopies(json.getJSONArray("connections").length(),Boolean.TRUE));
+                }
+                count=TrafficStats.connections(fields);
+            }catch(Exception | LinkageError ignored) { }
+            final TrafficStats.Sample value=sample;final int n=count;
+            handler.post(new Runnable(){public void run(){
+                busy=false;worker=null;
+                if(!active||g!=generation){schedule();return;}
+                if(!Session.isKernelRunning()||epoch!=Session.trafficEpoch()){graph.clear();schedule();return;}
+                if(session!=epoch){graph.clear();session=epoch;}
+                connections.setText(n<0?"—":String.valueOf(n));
+                if(value==null){
+                    speed.setText("↑ —     ↓ —");totals.setText("↑ —\n↓ —");graph.clear();
+                    state.setText(L10n.t(getContext(),"内核计数器暂不可用 · 自动重试","Core counters unavailable · Retrying"));
+                }else{
+                    speed.setText("↑ "+format(value.upSpeed)+"/s     ↓ "+format(value.downSpeed)+"/s");
+                    totals.setText("↑ "+format(value.upTotal)+"\n↓ "+format(value.downTotal));
+                    state.setText(n<0?L10n.t(getContext(),"内核流量正常 · 连接数接口不可用","Core traffic available · Connection count unavailable")
+                            :L10n.t(getContext(),"代理内核累计 · 曲线最近60次采样","Core totals · Last 60 samples"));
+                    graph.add(value.upSpeed,value.downSpeed);
+                }
+                schedule();
             }});
-        }},"traffic-read").start();
+        }},"traffic-read");worker.start();
     }
     private static String format(double n){String[] units={"B","KB","MB","GB","TB"};int i=0;while(n>=1024&&i<units.length-1){n/=1024;i++;}return String.format(Locale.ROOT,i==0?"%.0f %s":"%.2f %s",n,units[i]);}
     private static final class Graph extends View {

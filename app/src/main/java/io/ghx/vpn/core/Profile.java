@@ -8,7 +8,7 @@ public final class Profile {
     public static final int TYPE_CLASH = 1;
     public static final int TYPE_URI = 2;
     public static final int TYPE_SURFBOARD = 3;
-    /** ql 混合：一条内容里混排多个不同协议的节点链接。 */
+    /** ql 包装或同一行混排多个协议链接；普通多协议 URI 列表仍是 TYPE_URI。 */
     public static final int TYPE_QL = 4;
 
     public String id;

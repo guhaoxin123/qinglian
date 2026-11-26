@@ -72,6 +72,7 @@ public final class Session {
             requireIdle();
             ensure(ctx);
             Latency.clear();
+            prepareStatistics();
             java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
             String[] err = new String[1];
             pendingLoad = latch;
@@ -195,6 +196,51 @@ public final class Session {
         if (kernelRunning != v) trafficEpoch++;
         kernelRunning = v;
         if (!v) Latency.clear();
+    }
+
+    private static volatile TrafficStats.Endpoint statisticsEndpoint;
+
+    /** CMFA strips YAML controllers before applying slot 1 (session) overrides.
+     * Called only by the existing configuration-load path, never by the dashboard.
+     * nativeStartHttp is a forward proxy, NOT the REST controller.
+     */
+    private static void prepareStatistics() {
+        try {
+            TrafficStats.Endpoint endpoint = statisticsEndpoint;
+            if (endpoint == null) {
+                int port;
+                try (java.net.ServerSocket reservation = new java.net.ServerSocket(
+                        0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+                    port = reservation.getLocalPort();
+                }
+                endpoint = new TrafficStats.Endpoint(port,
+                        java.util.UUID.randomUUID().toString().replace("-", ""));
+            }
+            String old = Bridge.INSTANCE.nativeReadOverride(1);
+            org.json.JSONObject json = new org.json.JSONObject(old == null || old.trim().isEmpty() ? "{}" : old);
+            java.util.Map<String, Object> previous = new java.util.LinkedHashMap<String, Object>();
+            java.util.Iterator<String> keys = json.keys();
+            while (keys.hasNext()) { String key = keys.next(); previous.put(key, json.get(key)); }
+            Bridge.INSTANCE.nativeWriteOverride(1, new org.json.JSONObject(endpoint.overrides(previous)).toString());
+            statisticsEndpoint = endpoint;
+        } catch (Exception | LinkageError error) {
+            // Statistics failure must not prevent a user-requested connection.
+            statisticsEndpoint = null;
+            Log.i("连接数接口准备失败；网速和流量仍使用内核计数器");
+        }
+    }
+
+    public static TrafficStats.Endpoint statisticsEndpoint() { return statisticsEndpoint; }
+
+    /** Read-only JNI queries under a bounded lock. Never initializes or loads the core. */
+    public static TrafficStats.Sample queryTraffic(long epoch) throws Exception {
+        if (!CORE_LOCK.tryLock(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+            throw new IllegalStateException("Core busy");
+        try {
+            if (!kernelRunning || epoch != trafficEpoch) throw new IllegalStateException("Core changed");
+            return new TrafficStats.Sample(Bridge.INSTANCE.nativeQueryTrafficNow(),
+                    Bridge.INSTANCE.nativeQueryTrafficTotal());
+        } finally { CORE_LOCK.unlock(); }
     }
 
     public static boolean isKernelRunning() {

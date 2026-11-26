@@ -56,15 +56,26 @@ check(subs.includes('manager.addRemote(name, url, text, autoUpdateMinutes)'), 'U
 check(subs.includes('manager.addRaw(name, text, 0)'), 'file and paste import stay one-shot');
 check(!/addRemote[\s\S]{0,400}(select\(|TunnelService|Session\.)/.test(mgr), 'saving a URL import never selects or starts the VPN');
 const manifest = fs.readFileSync(path.join(root, 'app/src/main/AndroidManifest.xml'), 'utf8');
-check(manifest.includes("android:versionName=\"1.8\""), "versionName is 1.8");
-check(manifest.includes("android:versionCode=\"18\""), "versionCode is 18");
+check(manifest.includes("android:versionName=\"1.9\""), "versionName is 1.9");
+check(manifest.includes("android:versionCode=\"19\""), "versionCode is 19");
 const traffic = src('io/ghx/vpn/ui/TrafficPanel.java');
-check(traffic.includes('Proxy.NO_PROXY'), 'stats bypass proxy');
+const stats = src('io/ghx/vpn/core/TrafficStats.java');
+check(stats.includes('Proxy.NO_PROXY'), 'stats bypass proxy');
 check(traffic.includes('Session.trafficEpoch()'), 'stats reject stale sessions');
 check(traffic.includes('g!=generation'), 'stats reject paused requests');
-check(traffic.includes('u>=lastUp&&d>=lastDown'), 'counter resets cannot produce negative rates');
-check(traffic.includes('setReadTimeout(1200)'), 'stats reads time out');
-check(!traffic.includes('Session.ensure(') && !traffic.includes('nativeStart'), 'stats never start core');
+check(traffic.includes('Session.queryTraffic(epoch)') && !traffic.includes('lastUp'), 'native rates do not amplify rounded cumulative-counter deltas');
+check(stats.includes('setReadTimeout(1200)'), 'stats reads time out');
+check(!traffic.includes('Session.ensure(') && !traffic.includes('nativeStart'), 'dashboard never starts core');
+check(!session.includes('nativeStartHttp('), 'forward proxy must never be mistaken for statistics controller');
+check(session.includes('nativeQueryTrafficNow()') && session.includes('nativeQueryTrafficTotal()'), 'primary statistics use native counters');
+check(session.includes('CORE_LOCK.tryLock(200,'), 'native statistics lock is bounded');
+check(session.includes('nativeReadOverride(1)') && session.includes('nativeWriteOverride(1,'), 'REST enabled through actual session override slot');
+check(session.indexOf('prepareStatistics();') < session.indexOf('Bridge.INSTANCE.nativeLoad('), 'controller override precedes native load');
+check(stats.includes('127.0.0.1:') && stats.includes('setRequestProperty("Authorization"'), 'REST is authenticated and loopback-only');
+check(stats.includes('setInstanceFollowRedirects(false)'), 'auth token cannot follow redirects');
+check(traffic.includes('reader.cancel()') && traffic.includes('w.interrupt()'), 'paused panel cancels pending work');
+check(traffic.includes('内核流量正常 · 连接数接口不可用'), 'REST failure does not blank working native counters');
+check(traffic.includes('Exception | LinkageError'), 'unavailable JNI does not strand busy state');
 
 // 2026-11-23: the profile screen keeps exactly two buttons; one Import entry serves every source.
 check((subs.match(/fillBtn\(/g) || []).length === 3, 'only two buttons plus the factory');
@@ -102,13 +113,12 @@ check(profileSrc.includes('public static final int TYPE_UNKNOWN = 0;'), 'unknown
 check(/TYPE_URI\);/.test(mgr) === false, 'adding a URL profile no longer hard-codes v2ray');
 check(mgr.includes('Profile.TYPE_UNKNOWN'), 'a new URL profile starts as unknown');
 check(store.includes('p.type = Profile.TYPE_UNKNOWN'), 'empty subscriptions stored by 1.5 stop showing v2ray');
-check(/TYPE_URI\) return L10n\.t\(this, "v2ray", "v2ray"\)/.test(subs), 'v2ray is only shown for real URI profiles');
-check(subs.includes('NodeKind.uniform(nodes)') && subs.includes('typeLabel(Profile profile, java.util.List'),
-        'the badge is summarised from parsed node protocols');
-check(src('io/ghx/vpn/sub/NodeKind.java').includes('public static String uniform'),
-        'node-protocol summary is a pure, testable helper');
+const parser = src('io/ghx/vpn/sub/SubParser.java');
+check(subs.includes('SubParser.formatLabel(profile.type,') && subs.includes('typeLabel(Profile profile)'), 'badge uses identified subscription format only');
+check(!subs.includes('NodeKind.uniform('), 'protocol composition cannot relabel ordinary URI subscriptions as ql');
+check(parser.includes('case FMT_URI: return "v2ray";'), 'URI-format badge remains v2ray');
 check(!subs.includes('"v2ray 链接"'), 'review dialog does not call every link list v2ray');
-check(subs.includes('待识别'), 'unknown format is labelled as pending');
+check(parser.includes('待识别'), 'unknown format is labelled as pending');
 check(subs.includes('尚未更新 · 点「刷新」下载'), 'an undownloaded profile says how to fetch it');
 check(nodes.includes('pendingDownload') && nodes.includes('这个订阅还没下载成功'),
         'the node list explains an undownloaded subscription');
