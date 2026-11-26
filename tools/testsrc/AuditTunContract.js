@@ -56,8 +56,15 @@ check(subs.includes('manager.addRemote(name, url, text, autoUpdateMinutes)'), 'U
 check(subs.includes('manager.addRaw(name, text, 0)'), 'file and paste import stay one-shot');
 check(!/addRemote[\s\S]{0,400}(select\(|TunnelService|Session\.)/.test(mgr), 'saving a URL import never selects or starts the VPN');
 const manifest = fs.readFileSync(path.join(root, 'app/src/main/AndroidManifest.xml'), 'utf8');
-check(manifest.includes("android:versionName=\"1.7\""), "versionName is 1.7");
-check(manifest.includes("android:versionCode=\"17\""), "versionCode is 17");
+check(manifest.includes("android:versionName=\"1.8\""), "versionName is 1.8");
+check(manifest.includes("android:versionCode=\"18\""), "versionCode is 18");
+const traffic = src('io/ghx/vpn/ui/TrafficPanel.java');
+check(traffic.includes('Proxy.NO_PROXY'), 'stats bypass proxy');
+check(traffic.includes('Session.trafficEpoch()'), 'stats reject stale sessions');
+check(traffic.includes('g!=generation'), 'stats reject paused requests');
+check(traffic.includes('u>=lastUp&&d>=lastDown'), 'counter resets cannot produce negative rates');
+check(traffic.includes('setReadTimeout(1200)'), 'stats reads time out');
+check(!traffic.includes('Session.ensure(') && !traffic.includes('nativeStart'), 'stats never start core');
 
 // 2026-11-23: the profile screen keeps exactly two buttons; one Import entry serves every source.
 check((subs.match(/fillBtn\(/g) || []).length === 3, 'only two buttons plus the factory');

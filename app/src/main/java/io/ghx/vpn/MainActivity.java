@@ -51,6 +51,7 @@ public class MainActivity extends BaseActivity {
     private TextView ipMetaView;
     private TextView dnsView;
     private TextView speedView;
+    private io.ghx.vpn.ui.TrafficPanel trafficPanel;
 
     private LinearLayout modeRow;
 
@@ -74,6 +75,7 @@ public class MainActivity extends BaseActivity {
 
     @Override protected void onStop() {
         stopped = true;
+        if (trafficPanel != null) trafficPanel.pause();
         ++networkEpoch;
         networkRefreshPending = false;
         ui.removeCallbacks(networkRefresh);
@@ -127,6 +129,7 @@ public class MainActivity extends BaseActivity {
         super.onResume();
         if (isAppearanceRecreating()) return;
         stopped = false;
+        if (trafficPanel != null) trafficPanel.resume();
         refresh();
         connectivity = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         unregisterNetworkCallback();
@@ -260,6 +263,10 @@ public class MainActivity extends BaseActivity {
         });
         root.addView(addSub);
         Ui.margin(this, addSub, 0, 0, 0, 12);
+
+        trafficPanel = new io.ghx.vpn.ui.TrafficPanel(this);
+        root.addView(trafficPanel);
+        Ui.margin(this, trafficPanel, 0, 0, 0, 12);
 
         // 模式
         LinearLayout modeCard = Ui.card(this);

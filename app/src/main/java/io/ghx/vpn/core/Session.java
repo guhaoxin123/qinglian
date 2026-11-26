@@ -188,7 +188,11 @@ public final class Session {
     /** 内核是否已装载配置并在跑（由服务维护）。 */
     private static volatile boolean kernelRunning;
 
-    public static void kernelRunning(boolean v) {
+    private static volatile long trafficEpoch;
+    public static long trafficEpoch() { return trafficEpoch; }
+
+    public static synchronized void kernelRunning(boolean v) {
+        if (kernelRunning != v) trafficEpoch++;
         kernelRunning = v;
         if (!v) Latency.clear();
     }

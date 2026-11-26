@@ -25,7 +25,7 @@ public class VpnApp extends Application {
                 else android.os.Process.killProcess(android.os.Process.myPid());
             }
         });
-        Log.i("轻连 启动 v1.7 sdk=" + android.os.Build.VERSION.SDK_INT
+        Log.i("轻连 启动 v1.8 sdk=" + android.os.Build.VERSION.SDK_INT
                 + " abi=" + android.os.Build.SUPPORTED_ABIS[0]);
         Bridge.attach(this);
         // 不从外部文件隐式执行调试任务或网络测试。
