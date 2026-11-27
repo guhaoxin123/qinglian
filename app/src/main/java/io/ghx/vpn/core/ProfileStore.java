@@ -44,12 +44,9 @@ public final class ProfileStore {
                     p.name = o.optString("name");
                     p.url = o.optString("url", "");
                     p.content = o.optString("content", "");
-                    p.type = o.optInt("type", Profile.TYPE_CLASH);
-                    // 旧版本给只有地址的订阅默认写了 v2ray；没内容就是格式未知，别再误报。
-                    if ((p.content == null || p.content.length() == 0)
-                            && p.updatedAt == 0L && p.url.length() > 0) {
-                        p.type = Profile.TYPE_UNKNOWN;
-                    }
+                    // Stored type was inferred by older, incorrect heuristics. Content is authoritative.
+                    // This read only repairs in-memory metadata; never writes or downloads on load.
+                    p.reconcileFormat();
                     p.updatedAt = o.optLong("updatedAt", 0L);
                     p.autoUpdateMinutes = o.optInt("autoUpdateMinutes", o.optInt("autoUpdateHours", 12) * 60);
                     p.enabled = o.optBoolean("enabled", true);

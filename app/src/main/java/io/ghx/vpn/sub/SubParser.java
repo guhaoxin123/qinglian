@@ -9,7 +9,7 @@ public final class SubParser {
     public static final int FMT_CLASH = 1;
     public static final int FMT_URI = 2;
     public static final int FMT_SURFBOARD = 3;
-    /** 显式 ql 包装或同一行混排多个协议链接；不同协议本身不等于 ql 格式。 */
+    /** 仅用于带 ql:// 或 ql: 显式包装的内容；协议种类和分隔方式不是格式证据。 */
     public static final int FMT_QL = 4;
 
     private SubParser() {
@@ -34,18 +34,12 @@ public final class SubParser {
         if (SurfboardParser.looksLike(t)) return FMT_SURFBOARD;
         // Clash: 有 proxies: 顶层键
         if (hasClashKey(t, "proxies") || hasClashKey(t, "proxy-groups")) return FMT_CLASH;
-        // ql: 显式前缀优先；正文里的链接可以一条条拆开
-        if (QlParser.hasWrapper(t) && !QlParser.split(QlParser.unwrap(t)).isEmpty()) return FMT_QL;
-        String[] lines = t.split("\\r?\\n");
-        boolean anyLink = false;
-        for (int i = 0; i < lines.length; i++) {
-            List<String> links = QlParser.split(lines[i]);
-            if (links.isEmpty()) continue;
-            anyLink = true;
-            // 同一行里混排了 2 条以上链接（两个、三个都算）＝ ql 混合格式
-            if (links.size() > 1 && QlParser.count(links) > 1) return FMT_QL;
+        // A shared URI splitter is not evidence of a ql format. Require its explicit marker.
+        if (QlParser.hasWrapper(t)) {
+            return QlParser.split(QlParser.unwrap(t)).isEmpty() ? FMT_UNKNOWN : FMT_QL;
         }
-        if (anyLink) return FMT_URI;
+        // URI count, protocol diversity, whitespace and escaped newlines never imply ql.
+        if (!QlParser.split(t).isEmpty()) return FMT_URI;
         // Detection is plaintext-only. Decoding here would make unwrapBase64 return
         // encoded Clash unchanged after mistaking it for already-decoded YAML.
         return FMT_UNKNOWN;

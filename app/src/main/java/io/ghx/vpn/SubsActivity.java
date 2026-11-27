@@ -636,8 +636,8 @@ public class SubsActivity extends BaseActivity {
         final EditText name = nameInput(null);
         box.addView(name);
         final EditText body = new EditText(this);
-        body.setHint(L10n.t(this, "粘贴 Clash YAML、Surfboard 配置或 v2ray 链接（每行一条，ql 混合链接可挤在一起）",
-                "Paste Clash YAML, Surfboard or v2ray links (one per line; ql mixed links may be joined)"));
+        body.setHint(L10n.t(this, "粘贴 Clash YAML、Surfboard、v2ray URI 列表或带 ql:// 标记的内容",
+                "Paste Clash YAML, Surfboard, v2ray URI lists or explicitly ql://-wrapped content"));
         body.setTextColor(Ui.TEXT);
         body.setHintTextColor(Ui.TEXT_DIM);
         body.setMinLines(5);
@@ -788,7 +788,7 @@ public class SubsActivity extends BaseActivity {
         String formatName = format == SubParser.FMT_CLASH ? L10n.t(this, "Clash YAML", "Clash YAML")
                 : format == SubParser.FMT_SURFBOARD ? L10n.t(this, "Surfboard", "Surfboard")
                 : format == SubParser.FMT_QL ? L10n.t(this, "ql 混合链接", "ql mixed links")
-                : L10n.t(this, "节点链接", "Node links");
+                : L10n.t(this, "v2ray URI 列表", "v2ray URI list");
         int count = state.preview.nodeCount;
         int remoteMinutes = new Prefs(this).autoUpdateMinutes();
         String keep = state.remote

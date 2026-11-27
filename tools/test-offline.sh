@@ -13,11 +13,12 @@ mkdir -p "$OUT"
   "$SRC"/io/ghx/vpn/core/ConfigBuilder.java "$SRC"/io/ghx/vpn/core/RuleFilter.java \
   "$SRC"/io/ghx/vpn/core/DocumentImport.java "$SRC"/io/ghx/vpn/core/Interval.java "$SRC"/io/ghx/vpn/ui/ColorMath.java \
   "$SRC"/io/ghx/vpn/net/Net.java "$SRC"/io/ghx/vpn/net/SpeedTest.java \
-  "$SRC"/io/ghx/vpn/net/UrlSource.java "$SRC"/io/ghx/vpn/core/TrafficStats.java \
+  "$SRC"/io/ghx/vpn/net/UrlSource.java "$SRC"/io/ghx/vpn/core/TrafficStats.java "$SRC"/io/ghx/vpn/core/Profile.java \
   "$P"/tools/testsrc/AuditConfigTest.java "$P"/tools/testsrc/AuditSubTest.java \
   "$P"/tools/testsrc/AuditDocumentImport.java "$P"/tools/testsrc/AuditAppearanceTest.java \
-  "$P"/tools/testsrc/AuditSpeedTest.java "$P"/tools/testsrc/AuditIntervalTest.java "$P"/tools/testsrc/AuditTrafficTest.java
-for name in AuditConfigTest AuditSubTest AuditDocumentImport AuditAppearanceTest io.ghx.vpn.net.AuditSpeedTest AuditIntervalTest AuditTrafficTest; do
+  "$P"/tools/testsrc/AuditSpeedTest.java "$P"/tools/testsrc/AuditIntervalTest.java "$P"/tools/testsrc/AuditTrafficTest.java \
+  "$P"/tools/testsrc/AuditFormatRegression.java "$P"/tools/testsrc/AuditProfileFormat.java
+for name in AuditConfigTest AuditSubTest AuditDocumentImport AuditAppearanceTest io.ghx.vpn.net.AuditSpeedTest AuditIntervalTest AuditTrafficTest AuditFormatRegression AuditProfileFormat; do
   "$J/java" -cp "$OUT:$TC/android.jar" "$name"
 done
 # Link-time API classes only: CoreTunStatus.install()/Bridge.INSTANCE are NEVER executed.

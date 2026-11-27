@@ -149,7 +149,7 @@ public final class AuditDocumentImport {
                 + B64.encodeUtf8("aes-128-gcm:test") + "@ss.example.invalid:8388#S1"
                 + "hysteria2://pass@h.example.invalid:8443#H1";
         DocumentImport.Preview ql = DocumentImport.inspect(qlMix);
-        check("ql mixed links import as ql", ql.format == SubParser.FMT_QL);
+        check("unmarked mixed links import as v2ray", ql.format == SubParser.FMT_URI);
         check("ql mixed links count every node", ql.nodeCount == 3);
         check("ql wrapper imports", DocumentImport.inspect("ql://" + B64.encodeUtf8(qlMix)).nodeCount == 3);
         check("ql double base64 imports",

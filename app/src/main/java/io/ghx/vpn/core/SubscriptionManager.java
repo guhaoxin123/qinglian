@@ -216,10 +216,10 @@ public final class SubscriptionManager {
         if (p == null || p.content == null || p.content.length() == 0) {
             return new ArrayList<Node>();
         }
-        if (p.type == Profile.TYPE_CLASH) return ClashYaml.proxies(p.content);
-        int fmt = p.type == Profile.TYPE_SURFBOARD ? SubParser.FMT_SURFBOARD
-                : p.type == Profile.TYPE_QL ? SubParser.FMT_QL : SubParser.FMT_URI;
-        return SubParser.parseNodes(p.content, fmt);
+        String text = p.decodedContent();
+        int fmt = SubParser.detect(text);
+        if (fmt == SubParser.FMT_CLASH) return ClashYaml.proxies(text);
+        return SubParser.parseNodes(text, fmt);
     }
 
     /** 供界面用：某个配置里的分组（仅 Clash 原文有）。 */
@@ -227,7 +227,7 @@ public final class SubscriptionManager {
         if (p == null || p.type != Profile.TYPE_CLASH || p.content == null) {
             return new ArrayList<ClashYaml.Group>();
         }
-        return ClashYaml.groups(p.content);
+        return ClashYaml.groups(p.decodedContent());
     }
 
     /** 当前选用配置的节点列表。 */
@@ -249,7 +249,7 @@ public final class SubscriptionManager {
         Profile p = active();
         if (p != null && p.type == Profile.TYPE_CLASH && p.content != null
                 && p.content.length() > 0) {
-            return p.content;
+            return p.decodedContent();
         }
         return null;
     }

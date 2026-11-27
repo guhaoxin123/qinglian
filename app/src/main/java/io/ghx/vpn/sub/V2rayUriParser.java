@@ -28,7 +28,7 @@ public final class V2rayUriParser {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) continue;
-            // 一行里混排了多条链接（ql 混合）：先拆开再逐条解析，避免把后半截当参数。
+            // 同一行的多条 URI 先拆开再解析；排版或协议种类不改变 v2ray 格式。
             List<String> parts = QlParser.split(line);
             if (parts.size() > 1) {
                 for (int j = 0; j < parts.size(); j++) {

@@ -8,7 +8,7 @@ public final class Profile {
     public static final int TYPE_CLASH = 1;
     public static final int TYPE_URI = 2;
     public static final int TYPE_SURFBOARD = 3;
-    /** ql 包装或同一行混排多个协议链接；普通多协议 URI 列表仍是 TYPE_URI。 */
+    /** 仅带 ql:// 或 ql: 显式包装的内容；普通 URI 列表始终是 TYPE_URI。 */
     public static final int TYPE_QL = 4;
 
     public String id;
@@ -39,13 +39,23 @@ public final class Profile {
         return type == TYPE_CLASH;
     }
 
+    /** Resolve cached metadata from content, without rewriting content or any user setting. */
+    public void reconcileFormat() {
+        type = io.ghx.vpn.sub.SubParser.detect(decodedContent());
+    }
+
+    /** Decoding for reads only; the stored source text remains byte-for-byte unchanged. */
+    public String decodedContent() {
+        return io.ghx.vpn.sub.SubParser.unwrapBase64(content);
+    }
+
     /** 节点数估算：直接复用真实解析器，避免与实际能力不一致。 */
     public int nodeEstimate() {
-        if (content == null || content.length() == 0) return 0;
-        if (type == TYPE_CLASH) return -1;
         try {
-            int fmt = io.ghx.vpn.sub.SubParser.detect(content);
-            return io.ghx.vpn.sub.SubParser.parseNodes(content, fmt).size();
+            String text = decodedContent();
+            int fmt = io.ghx.vpn.sub.SubParser.detect(text);
+            if (fmt == TYPE_CLASH) return -1;
+            return io.ghx.vpn.sub.SubParser.parseNodes(text, fmt).size();
         } catch (Throwable t) {
             return 0;
         }
