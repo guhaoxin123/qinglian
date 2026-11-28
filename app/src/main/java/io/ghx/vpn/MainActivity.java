@@ -122,6 +122,7 @@ public class MainActivity extends BaseActivity {
             }
         });
         ui.postDelayed(tick, 1000);
+        io.ghx.vpn.core.AppUpdates.autoCheck(this);
     }
 
     @Override

@@ -46,6 +46,23 @@ public final class QlParser {
         return t;
     }
 
+    /** Explicit, lossless format conversion: never serializes or edits individual URIs. */
+    public static String wrap(String raw) {
+        String text = SubParser.unwrapBase64(raw);
+        int format = SubParser.detect(text);
+        if (format != SubParser.FMT_URI && format != SubParser.FMT_QL)
+            throw new IllegalArgumentException("只能转换有有效节点的 URI / ql 订阅");
+        List<Node> before = SubParser.parseNodes(text, format);
+        if (before.isEmpty()) throw new IllegalArgumentException("订阅没有可解析的节点");
+        String wrapped = format == SubParser.FMT_QL ? text : WRAP + "\n" + text;
+        List<Node> after = parse(wrapped);
+        if (before.size() != after.size()) throw new IllegalArgumentException("转换会改变节点，已取消");
+        for (int i = 0; i < before.size(); i++)
+            if (!before.get(i).toYaml().equals(after.get(i).toYaml()))
+                throw new IllegalArgumentException("转换会改变节点参数，已取消");
+        return wrapped;
+    }
+
     /** 切成若干条独立链接：任意分隔符都行，直接相连也能切开。 */
     public static List<String> split(String text) {
         List<String> out = new ArrayList<String>();

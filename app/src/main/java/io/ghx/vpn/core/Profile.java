@@ -49,6 +49,13 @@ public final class Profile {
         return io.ghx.vpn.sub.SubParser.unwrapBase64(content);
     }
 
+    /** Explicit content markers survive refresh; old type heuristics are never trusted. */
+    public String contentForRefresh(String raw) {
+        String next = io.ghx.vpn.sub.SubParser.unwrapBase64(raw);
+        return io.ghx.vpn.sub.SubParser.detect(decodedContent()) == TYPE_QL
+                ? io.ghx.vpn.sub.QlParser.wrap(next) : next;
+    }
+
     /** 节点数估算：直接复用真实解析器，避免与实际能力不一致。 */
     public int nodeEstimate() {
         try {

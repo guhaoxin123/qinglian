@@ -1,0 +1,1 @@
+package android.content.pm; public class PackageManager { public static final int GET_SIGNING_CERTIFICATES=1,GET_SIGNATURES=2; public PackageInfo current,archive; public PackageInfo getPackageInfo(String n,int f){return current;} public PackageInfo getPackageArchiveInfo(String n,int f){return archive;} }

@@ -330,6 +330,27 @@ public class SubsActivity extends BaseActivity {
             });
             actions.addView(auto);
         }
+        if (profile.type == Profile.TYPE_URI || profile.type == Profile.TYPE_QL) {
+            TextView convert = action(L10n.t(this, "转换为 ql", "Convert to ql"), Ui.ACCENT_TEXT);
+            convert.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    AlertDialog dialog = new AlertDialog.Builder(SubsActivity.this)
+                            .setTitle(L10n.t(SubsActivity.this, "转换为 ql", "Convert to ql"))
+                            .setMessage(L10n.t(SubsActivity.this,
+                                    "仅给「" + profile.name + "」添加 ql:// 格式标记，节点参数不变。以后刷新也保留 ql 格式；不会切换节点或连接 VPN。",
+                                    "Add a ql:// marker to “" + profile.name + "” without changing node parameters. Refreshes keep ql format. No node selection or VPN connection."))
+                            .setNegativeButton(L10n.t(SubsActivity.this, "取消", "Cancel"), null)
+                            .setPositiveButton(L10n.t(SubsActivity.this, "转换", "Convert"), new DialogInterface.OnClickListener() {
+                                @Override public void onClick(DialogInterface d, int which) {
+                                    try { subs.convertToQl(profile.id); refresh(); }
+                                    catch (RuntimeException e) { showError(L10n.t(SubsActivity.this, "转换失败", "Conversion failed"), e); }
+                                }
+                            }).show();
+                    Ui.tintDialog(dialog);
+                }
+            });
+            actions.addView(convert);
+        }
         TextView delete = action(L10n.t(this, "删除", "Delete"), Ui.ERR);
         delete.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -942,6 +963,7 @@ public class SubsActivity extends BaseActivity {
                         try { result[0] = subs.refresh(current); }
                         catch (Exception error) { errorText[0] = message(error); current.lastError = errorText[0]; }
                         subs.update(current);
+                        if (current.lastError != null) errorText[0] = current.lastError;
                     } catch (Exception error) { errorText[0] = message(error); }
                     finally { REFRESHING.remove(profile.id); }
                     ui.post(new Runnable() {

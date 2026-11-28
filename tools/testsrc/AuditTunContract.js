@@ -56,8 +56,8 @@ check(subs.includes('manager.addRemote(name, url, text, autoUpdateMinutes)'), 'U
 check(subs.includes('manager.addRaw(name, text, 0)'), 'file and paste import stay one-shot');
 check(!/addRemote[\s\S]{0,400}(select\(|TunnelService|Session\.)/.test(mgr), 'saving a URL import never selects or starts the VPN');
 const manifest = fs.readFileSync(path.join(root, 'app/src/main/AndroidManifest.xml'), 'utf8');
-check(manifest.includes("android:versionName=\"2.0\""), "versionName is 2.0");
-check(manifest.includes("android:versionCode=\"20\""), "versionCode is 20");
+check(manifest.includes("android:versionName=\"2.1\""), "versionName is 2.1");
+check(manifest.includes("android:versionCode=\"21\""), "versionCode is 21");
 const traffic = src('io/ghx/vpn/ui/TrafficPanel.java');
 const stats = src('io/ghx/vpn/core/TrafficStats.java');
 check(stats.includes('Proxy.NO_PROXY'), 'stats bypass proxy');
@@ -133,4 +133,31 @@ check(nodes.includes('pendingDownload') && nodes.includes('这个订阅还没下
 check(downloader.includes('下载超时（20 秒内没有响应）') && downloader.includes('域名解析失败')
         && downloader.includes('HTTPS 握手失败') && downloader.includes('连接被拒绝'),
         'network failures are explained instead of raw timeouts');
+const settings = src('io/ghx/vpn/SettingsActivity.java');
+const app = src('io/ghx/vpn/VpnApp.java');
+const guard = src('io/ghx/vpn/core/SignatureGuard.java');
+const updates = src('io/ghx/vpn/core/AppUpdates.java');
+const updateUi = src('io/ghx/vpn/UpdateActivity.java');
+const logReader = src('io/ghx/vpn/core/LogReader.java');
+const provider = src('io/ghx/vpn/core/UpdateProvider.java');
+check(app.indexOf('SignatureGuard.requireTrusted(this)') < app.indexOf('Log.init(this)'), 'signature enforced before custom exception handler');
+check(app.indexOf('SignatureGuard.requireTrusted(this)') < app.indexOf('Bridge.attach(this)'), 'signature enforced before JNI');
+check(guard.includes('throw new SecurityException("轻连签名校验失败"'), 'mismatch terminates startup, not just a warning');
+check(guard.includes('getApkContentsSigners()') && !guard.includes('getSigningCertificateHistory()'), 'only current signers accepted');
+check(guard.includes('signatures.length != 1'), 'reject extra signing certificates');
+check(updates.includes('86400000L') && updates.includes('getBoolean("enabled", true)'), 'daily auto-check and opt-out');
+check(updates.includes('setInstanceFollowRedirects(false)') && updates.includes('UpdatePolicy.downloadHost(url)'), 'redirect hosts validated');
+check(updates.includes('release.digest.equals(UpdatePolicy.hex(hash.digest()))'), 'download hash verified');
+check(updates.includes('SignatureGuard.verifyUpdate(ctx, file, release)'), 'download signature verified');
+check(updateUi.includes('ACTION_MANAGE_UNKNOWN_APP_SOURCES') && updateUi.includes('FLAG_GRANT_READ_URI_PERMISSION'), 'user-confirmed Android installation');
+check(provider.includes('MODE_READ_ONLY') && provider.includes('getCanonicalFile()'), 'provider narrow and read-only');
+check(!updates.includes('TunnelService') && !updates.includes('Session.'), 'app updater never connects or reloads VPN');
+check(logReader.includes('"--pid=" + pid') && logReader.includes('"-d"') && logReader.includes('"400"'), 'logcat process scoped and bounded');
+check(logReader.includes('timer.schedule(') && logReader.includes('p.destroy()'), 'logcat timeout and cancellation');
+check(!manifest.includes('android.permission.READ_LOGS'), 'no system log permissions');
+check(subs.includes('转换为 ql') && mgr.includes('convertToQl(String id)'), 'explicit conversion UI');
+const convert = mgr.split('public void convertToQl(String id)')[1].split('public void remove')[0];
+check(!/Session|select\(|refresh\(|Downloader|TunnelService/.test(convert), 'conversion never changes selection or runs network/VPN');
+check(mgr.includes('current.contentForRefresh(p.content)'), 'concurrent refresh preserves latest ql marker');
+check(settings.includes('3674825559@qq.com') && settings.includes('UpdatePolicy.HOME'), 'feedback email and author home');
 console.log('AuditTunContract: ' + count + ' checks passed; no VPN/native code executed');

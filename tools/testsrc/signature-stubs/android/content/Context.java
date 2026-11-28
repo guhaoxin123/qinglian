@@ -1,0 +1,1 @@
+package android.content; import android.content.pm.PackageManager; public class Context { public PackageManager pm=new PackageManager(); public PackageManager getPackageManager(){return pm;} public String getPackageName(){return "io.ghx.vpn";} }

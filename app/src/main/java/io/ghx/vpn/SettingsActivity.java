@@ -201,6 +201,32 @@ public class SettingsActivity extends BaseActivity {
         root.addView(section(t("关于", "About")));
         root.addView(item(t("内核版本", "Core version"), "mihomo", value(Session.coreVersion()), null));
         root.addView(item(t("应用版本", "App version"), "轻连", value(appVersion()), null));
+        final Switch appAuto = new Switch(SettingsActivity.this);
+        appAuto.setChecked(io.ghx.vpn.core.AppUpdates.enabled(SettingsActivity.this));
+        appAuto.setContentDescription(t("自动检查应用更新", "Automatically check app updates"));
+        Ui.tintControl(appAuto);
+        appAuto.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() { @Override public void onCheckedChanged(android.widget.CompoundButton button, boolean checked) { io.ghx.vpn.core.AppUpdates.enabled(SettingsActivity.this, checked); } });
+        root.addView(item(t("自动检查应用更新", "Automatic app update checks"),
+                t("打开应用时每天检查 GitHub 一次；下载和安装需确认", "Check GitHub once daily when opened; confirm downloads and installation"), appAuto, null));
+        root.addView(item(t("检查更新", "Check for updates"), "guhaoxin123/qinglian · GitHub Releases", value("›"),
+                new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) { startActivity(new Intent(SettingsActivity.this, UpdateActivity.class)); } }));
+        root.addView(item(t("作者 GitHub 主页", "Author on GitHub"), "github.com/guhaoxin123", value("›"), new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(io.ghx.vpn.core.UpdatePolicy.HOME))); }
+            catch (Exception e) { Toast.makeText(SettingsActivity.this, t("没有可用浏览器", "No browser available"), Toast.LENGTH_SHORT).show(); }
+        } }));
+        root.addView(item(t("反馈问题", "Report an issue"), t("查看联系邮箱", "Contact email"), value("›"), new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) {
+            AlertDialog d = new AlertDialog.Builder(SettingsActivity.this).setTitle(t("反馈问题", "Report an issue"))
+                    .setMessage(t("邮箱：3674825559@qq.com", "Email: 3674825559@qq.com"))
+                    .setPositiveButton(t("知道了", "OK"), null).show(); Ui.tintDialog(d);
+        } }));
+        root.addView(item(t("日志（logcat）", "Logs (logcat)"),
+                t("只读本应用日志；分享前检查敏感信息", "App logs only; review sensitive details before sharing"), value("›"),
+                new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) { startActivity(new Intent(SettingsActivity.this, LogsActivity.class)); } }));
+        root.addView(item(t("启动签名校验", "Startup signature verification"),
+                t("与原版证书不一致立即退出（初始化内核前）", "Exit before core initialization if the original certificate does not match"), value(t("已启用", "Enabled")), new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) {
+            AlertDialog d = new AlertDialog.Builder(SettingsActivity.this).setTitle(t("原签名 SHA-256", "Original certificate SHA-256"))
+                    .setMessage(io.ghx.vpn.core.SignatureGuard.CERT_SHA256).setPositiveButton(t("知道了", "OK"), null).show(); Ui.tintDialog(d);
+        } }));
         root.addView(item(t("捐赠支持", "Support development"),
                 t("请作者喝杯咖啡 · 微信赞赏", "Buy the author a coffee · WeChat donation"),
                 value(t("赞赏", "Donate")), new View.OnClickListener() {

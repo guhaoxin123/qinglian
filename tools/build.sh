@@ -46,13 +46,19 @@ fi
 $J/java -cp $P/tools ZipPack $OUT/apk $OUT/unsigned.apk
 
 echo "[6/6] 签名"
+# Never silently generate a replacement key: startup is pinned to the original certificate.
 if [ ! -f $TC/litlink.jks ]; then
-  $J/keytool -genkeypair -storetype JKS -keystore $TC/litlink.jks -alias litlink -keyalg RSA -keysize 2048 \
-    -validity 10000 -storepass litlink123 -keypass litlink123 \
-    -dname "CN=LitLink, O=LitLink, C=CN" >/dev/null 2>&1
+  echo "缺少原签名密钥，停止构建（不会生成新密钥）" >&2
+  exit 1
 fi
 $J/java -jar $TC/apksigner.jar sign --ks $TC/litlink.jks --ks-type JKS --ks-pass pass:litlink123 \
   --key-pass pass:litlink123 --out $OUT/LitLink.apk $OUT/unsigned.apk
 $J/java -jar $TC/apksigner.jar verify --verbose $OUT/LitLink.apk
+CERTS=$($J/java -jar $TC/apksigner.jar verify --print-certs $OUT/LitLink.apk)
+printf '%s\n' "$CERTS"
+case "$CERTS" in
+  *"certificate SHA-256 digest: 0a9a6adfe1f9d72ea7acb819dbfb84723c427b10ab3128f7fff8517388eec951"*) ;;
+  *) echo "签名与应用启动校验基准不一致，拒绝发行" >&2; exit 1 ;;
+esac
 printf '%s\n' "$OUT/LitLink.apk" > "$P/latest-apk.txt"
 ls -l $OUT/LitLink.apk

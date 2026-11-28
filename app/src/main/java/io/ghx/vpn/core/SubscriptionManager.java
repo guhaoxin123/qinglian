@@ -39,10 +39,12 @@ public final class SubscriptionManager {
         String raw = r.body == null ? "" : r.body;
         if (raw.trim().length() == 0) throw new IOException("订阅内容为空");
 
-        String text = SubParser.unwrapBase64(raw);
-        int fmt = SubParser.detect(text);
+        final String text;
+        final int fmt;
         final int count;
         try {
+            text = p.contentForRefresh(raw);
+            fmt = SubParser.detect(text);
             count = validatedNodeCount(text, fmt);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
@@ -139,11 +141,20 @@ public final class SubscriptionManager {
             if (current == null) return; // Deleted while downloading: do not recreate it.
             if (!sameUrl(current.url, p.url) || p.updatedAt < current.updatedAt) return;
             if (p.lastError == null) {
-                current.content = p.content;
-                current.type = p.type;
-                current.updatedAt = p.updatedAt;
-            }
-            current.lastError = p.lastError;
+                try {
+                    // Reapply the latest marker under the store lock: conversion may race a download.
+                    String text = current.contentForRefresh(p.content);
+                    int fmt = SubParser.detect(text);
+                    validatedNodeCount(text, fmt);
+                    current.content = text;
+                    current.type = profileType(fmt);
+                    current.updatedAt = p.updatedAt;
+                    current.lastError = null;
+                } catch (IllegalArgumentException e) {
+                    current.lastError = e.getMessage(); // Keep the last valid cache intact.
+                    p.lastError = current.lastError;
+                }
+            } else current.lastError = p.lastError;
             store.save(all);
         }
     }
@@ -159,6 +170,18 @@ public final class SubscriptionManager {
             Profile current = store.byId(all, id);
             if (current == null) return;
             current.autoUpdateMinutes = Interval.normalize(minutes);
+            store.save(all);
+        }
+    }
+
+    /** User-selected conversion of cached text only; never downloads, selects or reloads. */
+    public void convertToQl(String id) {
+        synchronized (ProfileStore.LOCK) {
+            List<Profile> all = store.load();
+            Profile current = store.byId(all, id);
+            if (current == null) throw new IllegalStateException("配置已删除");
+            current.content = io.ghx.vpn.sub.QlParser.wrap(current.content);
+            current.reconcileFormat();
             store.save(all);
         }
     }
