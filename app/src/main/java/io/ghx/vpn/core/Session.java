@@ -151,7 +151,7 @@ public final class Session {
 
     /**
      * 切换节点。内核没跑时只记住选择，避免在主线程触发 JNI 而卡住界面。
-     * 返回值表示提交时内核是否运行；实际切换由后台任务完成。
+     * 返回值表示是否已即时生效。
      */
     public static boolean select(Context ctx, String nodeName) {
         appCtx = ctx.getApplicationContext();
@@ -160,18 +160,14 @@ public final class Session {
             selected = name;
             new Prefs(ctx).selectedNode(name);
         }
-        final boolean wasRunning = isKernelRunning();
-        // Always queue: startup may already have restored A while the user now selects B.
-        // Waiting happens outside SELECTION_LOCK; the service publishes running under CORE_LOCK.
+        if (!isKernelRunning()) return false;
         final Context app = ctx.getApplicationContext();
         new Thread(new Runnable() {
             @Override
             public void run() {
+                CORE_LOCK.lock();
                 try {
-                    SessionTasks.runWhenRunning(CORE_LOCK, new SessionTasks.State() {
-                        public boolean running() { return isKernelRunning(); }
-                    }, new SessionTasks.Task() { public void run() {
-                    if (!name.equals(selected)) return;
+                    if (!isKernelRunning() || !name.equals(selected)) return;
                     if (!Bridge.INSTANCE.nativePatchSelector(selectionGroup, name)) {
                         restoreSelection(app);
                         new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
@@ -180,14 +176,14 @@ public final class Session {
                             }
                         });
                     }
-                    }});
                 } catch (Throwable error) {
-                    if (error instanceof InterruptedException) Thread.currentThread().interrupt();
                     Log.w("节点切换失败", error);
+                } finally {
+                    CORE_LOCK.unlock();
                 }
             }
         }, "select").start();
-        return wasRunning;
+        return true;
     }
 
     /** 内核是否已装载配置并在跑（由服务维护）。 */

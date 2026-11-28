@@ -99,21 +99,20 @@ public final class AutoUpdate {
 
     /** 按最早到期的订阅安排下一次检查；没有需要更新的就取消闹钟。 */
     public static void schedule(Context ctx) {
-        // Serialize snapshot + alarm commit with saves: an old empty snapshot must not cancel
-        // the alarm just created for the first imported subscription. Reentrant with manager hooks.
-        synchronized (ProfileStore.LOCK) {
-            try {
-                Context app = ctx.getApplicationContext();
-                AlarmManager am = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
-                if (am == null) return;
-                PendingIntent pi = pending(app);
-                long triggerAt = nextDueAt(app);
-                if (triggerAt <= 0) am.cancel(pi);
-                else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            } catch (RuntimeException e) {
-                // A scheduling failure must not turn an already successful save into UI failure.
-                Log.w(TAG, "schedule failed", e);
+        Context app = ctx.getApplicationContext();
+        AlarmManager am = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        PendingIntent pi = pending(app);
+        long triggerAt = nextDueAt(app);
+        try {
+            if (triggerAt <= 0) {
+                am.cancel(pi);
+            } else {
+                // setAndAllowWhileIdle 不需要精确闹钟权限，系统粒度约 15 分钟，正合最小间隔。
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "schedule failed", e);
         }
     }
 

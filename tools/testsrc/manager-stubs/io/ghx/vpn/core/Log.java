@@ -1,1 +1,0 @@
-package io.ghx.vpn.core; public class Log {public static void i(String s){}public static void w(String s,Throwable e){}}

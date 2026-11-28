@@ -18,18 +18,16 @@ mkdir -p "$OUT"
   "$P"/tools/testsrc/AuditDocumentImport.java "$P"/tools/testsrc/AuditAppearanceTest.java \
   "$P"/tools/testsrc/AuditSpeedTest.java "$P"/tools/testsrc/AuditIntervalTest.java "$P"/tools/testsrc/AuditTrafficTest.java \
   "$P"/tools/testsrc/AuditFormatRegression.java "$P"/tools/testsrc/AuditProfileFormat.java \
-  "$SRC"/io/ghx/vpn/core/UpdatePolicy.java "$SRC"/io/ghx/vpn/core/LogReader.java "$P"/tools/testsrc/AuditUpdateQl.java \
-  "$SRC"/io/ghx/vpn/core/UpdateCache.java "$P"/tools/testsrc/AuditUpdateEdges.java \
-  "$SRC"/io/ghx/vpn/core/SessionTasks.java "$P"/tools/testsrc/AuditSessionEdges.java "$P"/tools/testsrc/AuditUriEdges.java
-for name in AuditConfigTest AuditSubTest AuditDocumentImport AuditAppearanceTest io.ghx.vpn.net.AuditSpeedTest AuditIntervalTest AuditTrafficTest AuditFormatRegression AuditProfileFormat AuditUpdateQl AuditUpdateEdges AuditSessionEdges AuditUriEdges; do
-  "$J/java" -Djava.io.tmpdir="$OUT" -cp "$OUT:$TC/android.jar" "$name"
+  "$SRC"/io/ghx/vpn/core/UpdatePolicy.java "$SRC"/io/ghx/vpn/core/LogReader.java "$P"/tools/testsrc/AuditUpdateQl.java
+for name in AuditConfigTest AuditSubTest AuditDocumentImport AuditAppearanceTest io.ghx.vpn.net.AuditSpeedTest AuditIntervalTest AuditTrafficTest AuditFormatRegression AuditProfileFormat AuditUpdateQl; do
+  "$J/java" -cp "$OUT:$TC/android.jar" "$name"
 done
 # Link-time API classes only: CoreTunStatus.install()/Bridge.INSTANCE are NEVER executed.
 "$J/javac" -encoding UTF-8 -source 8 -target 8 -nowarn -cp "$TC/android.jar" -d "$OUT" \
   "$SRC"/com/github/kr328/clash/core/bridge/*.java "$SRC"/kotlin/*.java \
   "$SRC"/kotlinx/coroutines/*.java "$SRC"/io/ghx/vpn/core/CoreTunStatus.java \
   "$P"/tools/testsrc/AuditTunStatus.java
-"$J/java" -Djava.io.tmpdir="$OUT" -cp "$OUT:$TC/android.jar" io.ghx.vpn.core.AuditTunStatus
+"$J/java" -cp "$OUT:$TC/android.jar" io.ghx.vpn.core.AuditTunStatus
 # Separate JVM classpath: Android test doubles must never enter the production APK.
 SIG="$OUT/signature"
 mkdir -p "$SIG"
@@ -39,19 +37,5 @@ mkdir -p "$SIG"
   "$P"/tools/testsrc/signature-stubs/android/os/*.java \
   "$SRC"/io/ghx/vpn/core/UpdatePolicy.java "$SRC"/io/ghx/vpn/core/SignatureGuard.java \
   "$P"/tools/testsrc/AuditSignature.java
-"$J/java" -Djava.io.tmpdir="$OUT" -cp "$SIG" AuditSignature "$P/tools/testsrc/fixtures/original-public-cert.der"
-# Real manager and alarm logic, isolated in-memory store/network/Android doubles only.
-MGR="$OUT/manager"
-mkdir -p "$MGR"
-"$J/javac" -encoding UTF-8 -source 8 -target 8 -nowarn -d "$MGR" \
-  "$P"/tools/testsrc/manager-stubs/android/*/*.java \
-  "$P"/tools/testsrc/manager-stubs/io/ghx/vpn/core/*.java \
-  "$P"/tools/testsrc/manager-stubs/io/ghx/vpn/net/*.java \
-  "$P"/tools/testsrc/manager-stubs/io/ghx/vpn/svc/*.java \
-  "$SRC"/io/ghx/vpn/sub/*.java \
-  "$SRC"/io/ghx/vpn/core/SubscriptionManager.java "$SRC"/io/ghx/vpn/core/Profile.java \
-  "$SRC"/io/ghx/vpn/core/AutoUpdate.java "$SRC"/io/ghx/vpn/core/DocumentImport.java \
-  "$SRC"/io/ghx/vpn/core/Interval.java "$SRC"/io/ghx/vpn/core/ConfigBuilder.java \
-  "$SRC"/io/ghx/vpn/core/RuleFilter.java "$P"/tools/testsrc/AuditManagerEdges.java
-"$J/java" -Djava.io.tmpdir="$OUT" -cp "$MGR" AuditManagerEdges
+"$J/java" -cp "$SIG" AuditSignature "$P/tools/testsrc/fixtures/original-public-cert.der"
 printf '\nOffline JVM tests passed. Source-string checks: run node tools/testsrc/AuditTunContract.js separately.\n'

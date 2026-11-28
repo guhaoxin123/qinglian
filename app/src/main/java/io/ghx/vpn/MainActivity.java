@@ -122,13 +122,13 @@ public class MainActivity extends BaseActivity {
             }
         });
         ui.postDelayed(tick, 1000);
+        io.ghx.vpn.core.AppUpdates.autoCheck(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (isAppearanceRecreating()) return;
-        io.ghx.vpn.core.AppUpdates.autoCheck(this);
         stopped = false;
         if (trafficPanel != null) trafficPanel.resume();
         refresh();
@@ -712,19 +712,16 @@ public class MainActivity extends BaseActivity {
     // ---------------- 操作 ----------------
 
     private void reloadIfRunning() {
-        if (!io.ghx.vpn.core.SessionTasks.admitReload(TunnelService.isRunning(), TunnelService.isStarting())) return;
+        if (!TunnelService.isRunning()) return;
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    io.ghx.vpn.core.SessionTasks.runWhenRunning(Session.CORE_LOCK,
-                            new io.ghx.vpn.core.SessionTasks.State() {
-                                public boolean running() { return TunnelService.isRunning() && Session.isKernelRunning(); }
-                            }, new io.ghx.vpn.core.SessionTasks.Task() {
-                                public void run() throws Exception {
-                                    Session.reload(MainActivity.this, new SubscriptionManager(MainActivity.this));
-                                }
-                            });
+                    Session.CORE_LOCK.lockInterruptibly();
+                    try {
+                        if (TunnelService.isRunning() && Session.isKernelRunning())
+                            Session.reload(MainActivity.this, new SubscriptionManager(MainActivity.this));
+                    } finally { Session.CORE_LOCK.unlock(); }
                 } catch (final Exception error) {
                     ui.post(new Runnable() { public void run() {
                         if (!isDestroyed()) Toast.makeText(MainActivity.this,

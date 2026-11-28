@@ -20,8 +20,6 @@ public final class Profile {
     public int autoUpdateMinutes; // 0 = 不自动更新，最小 15 分钟
     public boolean enabled = true;
     public String lastError;
-    /** In-process refresh ticket only; never persisted as subscription data. */
-    transient long refreshTicket;
 
     public Profile() {
     }
