@@ -39,10 +39,12 @@ echo "[5/6] 组装"
 $J/javac -nowarn -d $P/tools $P/tools/ZipPack.java
 cd $OUT/apk && unzip -q -o $OUT/base.apk
 cp $OUT/dex/classes.dex $OUT/apk/classes.dex
-if [ -d /sdcard/llb/libs/arm64-v8a ]; then
-  mkdir -p $OUT/apk/lib/arm64-v8a
-  cp /sdcard/llb/libs/arm64-v8a/*.so $OUT/apk/lib/arm64-v8a/
-fi
+# Refuse a seemingly successful APK that cannot load its bundled native core.
+mkdir -p "$OUT/apk/lib/arm64-v8a"
+for lib in libbridge.so libclash.so libc++_shared.so liblkengine.so; do
+  test -s "/sdcard/llb/libs/arm64-v8a/$lib" || { echo "缺少原生库: $lib" >&2; exit 1; }
+  cp "/sdcard/llb/libs/arm64-v8a/$lib" "$OUT/apk/lib/arm64-v8a/$lib"
+done
 $J/java -cp $P/tools ZipPack $OUT/apk $OUT/unsigned.apk
 
 echo "[6/6] 签名"

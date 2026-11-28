@@ -121,17 +121,30 @@ public final class AppUpdates {
                 throw new IOException("发行版没有匹配的 APK");
             } finally { if (input != null) input.close(); input = null; c.disconnect(); connection = null; }
         }
-        public File download(Context ctx, UpdatePolicy.Release release, Progress progress) throws Exception {
-            long deadline = System.nanoTime() + 300000000000L;
-            File dir = new File(ctx.getCacheDir(), "updates");
-            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("无法创建更新缓存");
-            File file = File.createTempFile("qinglian-", ".apk", dir); boolean success = false;
+        /** Local verification only: a restored Bundle never authorizes a network request or installation. */
+        public File cached(Context ctx, String name, UpdatePolicy.Release release) throws Exception {
+            long deadline = System.nanoTime() + 45000000000L; active(deadline);
+            File dir = UpdateCache.directory(ctx.getCacheDir());
+            File file = UpdateCache.retain(dir, name);
             try {
+                UpdateCache.verifyBytes(file, release); active(deadline);
+                SignatureGuard.verifyUpdate(ctx, file, release); active(deadline);
+                return file;
+            } finally { UpdateCache.release(file); }
+        }
+        public File download(Context ctx, UpdatePolicy.Release release, Progress progress) throws Exception {
+            long deadline = System.nanoTime() + 300000000000L; active(deadline);
+            File dir = UpdateCache.directory(ctx.getCacheDir());
+            try (UpdateCache.Download slot = UpdateCache.reserve(dir, release)) {
+                if (slot.reuseOrRepair(release)) {
+                    active(deadline); SignatureGuard.verifyUpdate(ctx, slot.file, release); active(deadline);
+                    slot.ready(); return slot.file;
+                }
                 HttpURLConnection c = open(release.url, true, deadline);
                 try {
                     input = c.getInputStream();
                     MessageDigest hash = MessageDigest.getInstance("SHA-256"); long done = 0, lastReport = 0;
-                    try (FileOutputStream out = new FileOutputStream(file)) {
+                    try (FileOutputStream out = new FileOutputStream(slot.partial)) {
                         byte[] buffer = new byte[32768]; int n;
                         while ((n = input.read(buffer)) != -1) {
                             active(deadline); done += n;
@@ -143,10 +156,10 @@ public final class AppUpdates {
                         out.getFD().sync();
                     }
                     if (done != release.size || !release.digest.equals(UpdatePolicy.hex(hash.digest()))) throw new SecurityException("安装包 SHA-256 / 大小校验失败");
-                    active(deadline); SignatureGuard.verifyUpdate(ctx, file, release);
-                    success = true; return file;
+                    active(deadline); SignatureGuard.verifyUpdate(ctx, slot.partial, release); active(deadline);
+                    slot.publish(); slot.ready(); return slot.file;
                 } finally { if (input != null) input.close(); input = null; c.disconnect(); connection = null; }
-            } finally { if (!success) file.delete(); } // Only this request's own temporary file.
+            }
         }
     }
 }

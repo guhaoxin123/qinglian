@@ -53,17 +53,17 @@ public final class V2rayUriParser {
 
     public static Node parseOne(String uri) {
         String t = uri.trim();
-        if (t.startsWith("vmess://")) return vmess(t.substring(8));
-        if (t.startsWith("vless://")) return vless(t.substring(8));
-        if (t.startsWith("trojan://")) return trojan(t.substring(9));
-        if (t.startsWith("ss://")) return shadowsocks(t.substring(5));
-        if (t.startsWith("hysteria2://")) return hysteria2(t.substring(12));
-        if (t.startsWith("hy2://")) return hysteria2(t.substring(6));
-        if (t.startsWith("tuic://")) return tuic(t.substring(8));
-        if (t.startsWith("socks5://")) return socks(t.substring(9), "socks5");
-        if (t.startsWith("socks://")) return socks(t.substring(8), "socks5");
-        if (t.startsWith("http://") && t.indexOf('@') > 0) return socks(t.substring(7), "http");
-        if (t.startsWith("https://") && t.indexOf('@') > 0) return socks(t.substring(8), "http");
+        if (t.startsWith("vmess://")) return vmess(t.substring("vmess://".length()));
+        if (t.startsWith("vless://")) return vless(t.substring("vless://".length()));
+        if (t.startsWith("trojan://")) return trojan(t.substring("trojan://".length()));
+        if (t.startsWith("ss://")) return shadowsocks(t.substring("ss://".length()));
+        if (t.startsWith("hysteria2://")) return hysteria2(t.substring("hysteria2://".length()));
+        if (t.startsWith("hy2://")) return hysteria2(t.substring("hy2://".length()));
+        if (t.startsWith("tuic://")) return tuic(t.substring("tuic://".length()));
+        if (t.startsWith("socks5://")) return socks(t.substring("socks5://".length()), "socks5", false);
+        if (t.startsWith("socks://")) return socks(t.substring("socks://".length()), "socks5", false);
+        if (t.startsWith("http://") && t.indexOf('@') > 0) return socks(t.substring("http://".length()), "http", false);
+        if (t.startsWith("https://") && t.indexOf('@') > 0) return socks(t.substring("https://".length()), "http", true);
         return null;
     }
 
@@ -112,26 +112,52 @@ public final class V2rayUriParser {
         return q < 0 ? s : s.substring(0, q);
     }
 
+    /** Read only the authority; a URI path or query is never part of its port. */
     private static String[] splitHostPort(String s, int defPort) {
         String hp = stripQuery(s);
+        int slash = hp.indexOf('/');
+        if (slash >= 0) hp = hp.substring(0, slash);
         String host = hp;
         int port = defPort;
-        if (hp.startsWith("[")) { // ipv6
+        if (hp.startsWith("[")) { // IPv6 literals must keep their matching brackets.
             int close = hp.indexOf(']');
-            if (close > 0) {
-                host = hp.substring(1, close);
-                if (close + 2 < hp.length() && hp.charAt(close + 1) == ':') {
-                    port = toInt(hp.substring(close + 2), defPort);
-                }
+            if (close <= 1) throw new IllegalArgumentException("无效的节点地址");
+            host = hp.substring(1, close);
+            if (host.indexOf(':') < 0 || host.indexOf('[') >= 0)
+                throw new IllegalArgumentException("无效的 IPv6 地址");
+            if (close + 1 < hp.length()) {
+                if (hp.charAt(close + 1) != ':') throw new IllegalArgumentException("无效的节点地址");
+                port = explicitPort(hp.substring(close + 2));
             }
         } else {
             int colon = hp.lastIndexOf(':');
-            if (colon > 0) {
+            if (colon >= 0) {
+                if (hp.indexOf(':') != colon) throw new IllegalArgumentException("IPv6 地址必须使用方括号");
                 host = hp.substring(0, colon);
-                port = toInt(hp.substring(colon + 1), defPort);
+                port = explicitPort(hp.substring(colon + 1));
             }
         }
+        if (host.length() == 0 || host.indexOf('[') >= 0 || host.indexOf(']') >= 0)
+            throw new IllegalArgumentException("无效的节点地址");
+        for (int i = 0; i < host.length(); i++) {
+            if (Character.isWhitespace(host.charAt(i)) || host.charAt(i) == '@')
+                throw new IllegalArgumentException("无效的节点地址");
+        }
         return new String[]{host, String.valueOf(port)};
+    }
+
+    /** An omitted port uses the protocol default; an explicit invalid port never does. */
+    private static int explicitPort(String value) {
+        if (value.length() == 0) throw new IllegalArgumentException("节点端口为空");
+        int port = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') throw new IllegalArgumentException("无效的节点端口");
+            port = port * 10 + c - '0';
+            if (port > 65535) throw new IllegalArgumentException("节点端口超出范围");
+        }
+        if (port == 0) throw new IllegalArgumentException("节点端口超出范围");
+        return port;
     }
 
     private static int toInt(String s, int def) {
@@ -470,7 +496,7 @@ public final class V2rayUriParser {
     }
 
     /** socks5://user:pass@host:port#name → 同时可用于 http 代理。 */
-    private static Node socks(String body, String type) {
+    private static Node socks(String body, String type, boolean tls) {
         String[] h = new String[]{type + "://" + body};
         String name = takeName(h, type);
         String rest = h[0].substring(type.length() + 3);
@@ -488,7 +514,7 @@ public final class V2rayUriParser {
         if ("socks5".equals(type)) {
             n.put("udp", true);
         } else {
-            n.put("tls", false);
+            n.put("tls", tls);
         }
         return n;
     }

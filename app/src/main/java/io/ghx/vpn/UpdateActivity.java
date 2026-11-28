@@ -13,7 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import io.ghx.vpn.core.AppUpdates;
-import io.ghx.vpn.core.SignatureGuard;
+import io.ghx.vpn.core.UpdateCache;
 import io.ghx.vpn.core.UpdatePolicy;
 import io.ghx.vpn.ui.BaseActivity;
 import io.ghx.vpn.ui.L10n;
@@ -26,7 +26,8 @@ public class UpdateActivity extends BaseActivity {
     private TextView status, download, install, retry;
     private AppUpdates.Request request;
     private UpdatePolicy.Release release;
-    private File apk;
+    private File apk, heldApk;
+    private String pendingApk;
     private boolean busy, waitingPermission;
     private String t(String zh, String en) { return L10n.t(this, zh, en); }
     @Override public void onCreate(Bundle state) {
@@ -44,7 +45,66 @@ public class UpdateActivity extends BaseActivity {
             try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(UpdatePolicy.REPO + "/releases/latest"))); }
             catch (Exception e) { status.setText(t("没有可打开链接的浏览器", "No browser available")); }
         } });
-        setContentView(scroll); check();
+        setContentView(scroll);
+        if (!restore(state)) check();
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (release != null && pendingApk != null) {
+            state.putString("update.file", pendingApk); // Basename only, never an arbitrary path/URI.
+            state.putString("update.version", release.version); state.putString("update.url", release.url);
+            state.putString("update.digest", release.digest); state.putLong("update.size", release.size);
+            state.putString("update.notes", release.notes); state.putBoolean("update.permission", waitingPermission);
+        }
+        super.onSaveInstanceState(state);
+    }
+    private void forgetApk() {
+        if (heldApk != null) UpdateCache.release(heldApk);
+        heldApk = null; apk = null; pendingApk = null;
+    }
+    private void holdApk(String name) throws Exception {
+        if (heldApk != null && heldApk.getName().equals(name)) return;
+        forgetApk(); heldApk = UpdateCache.retain(UpdateCache.directory(getCacheDir()), name); pendingApk = name;
+    }
+    private boolean restore(Bundle state) {
+        if (state == null || state.getString("update.file") == null) return false;
+        try {
+            release = UpdateCache.restoreRelease(state.getString("update.version"), state.getString("update.url"),
+                    state.getString("update.digest"), state.getLong("update.size"), state.getString("update.notes"));
+            holdApk(state.getString("update.file"));
+            waitingPermission = state.getBoolean("update.permission", false);
+            verifyCached(false); return true;
+        } catch (Exception e) { forgetApk(); release = null; waitingPermission = false; return false; }
+    }
+    private void showReady() {
+        setBusy(false); download.setVisibility(View.GONE); install.setVisibility(View.VISIBLE);
+        status.setText(t("安装包 SHA-256、大小、包名、版本及原签名校验通过。请点击安装，仍需系统确认。",
+                "APK SHA-256, size, package, version and original signature verified. Tap Install; Android still asks for confirmation."));
+    }
+    /** Hash/signature verification runs off the main thread; restoration never opens the installer. */
+    private void verifyCached(final boolean userRequestedInstall) {
+        if (release == null || pendingApk == null || busy) return;
+        if (request != null) request.cancel();
+        request = new AppUpdates.Request(); final AppUpdates.Request task = request;
+        final UpdatePolicy.Release target = release; final String name = pendingApk;
+        setBusy(true); status.setText(t("正在重新验证已下载的安装包…", "Revalidating the downloaded APK…"));
+        new Thread(new Runnable() { @Override public void run() {
+            try {
+                final File verified = task.cached(getApplicationContext(), name, target);
+                ui.post(new Runnable() { @Override public void run() {
+                    if (!alive() || request != task) return;
+                    apk = verified; showReady();
+                    if (userRequestedInstall) launchInstaller();
+                } });
+            } catch (final Exception e) {
+                ui.post(new Runnable() { @Override public void run() {
+                    if (!alive() || request != task) return;
+                    forgetApk(); waitingPermission = false; setBusy(false);
+                    install.setVisibility(View.GONE); download.setVisibility(View.VISIBLE);
+                    status.setText(t("缓存校验失败；请重新检查或下载：", "Cached APK verification failed; check or download again: ")
+                            + L10n.error(UpdateActivity.this, e));
+                } });
+            } finally { task.cancel(); }
+        } }, "app-update-verify").start();
     }
     private TextView button(LinearLayout body, String label, View.OnClickListener listener) {
         TextView v = Ui.text(this, label, 15f, Ui.ACCENT_TEXT); v.setMinHeight(Ui.dp(this, 52));
@@ -56,7 +116,8 @@ public class UpdateActivity extends BaseActivity {
         if (busy) return;
         if (request != null) request.cancel();
         request = new AppUpdates.Request(); final AppUpdates.Request task = request;
-        release = null; apk = null; download.setVisibility(View.GONE); install.setVisibility(View.GONE);
+        forgetApk(); release = null; waitingPermission = false;
+        download.setVisibility(View.GONE); install.setVisibility(View.GONE);
         setBusy(true); status.setText(t("正在从 GitHub 检查正式发行版…", "Checking GitHub for a stable release…"));
         new Thread(new Runnable() { @Override public void run() {
             try {
@@ -84,6 +145,8 @@ public class UpdateActivity extends BaseActivity {
         if (busy || release == null) return;
         if (request != null) request.cancel();
         request = new AppUpdates.Request(); final AppUpdates.Request task = request; final UpdatePolicy.Release target = release;
+        // The worker's reservation is the sole download lease; UI retains only after successful verification.
+        forgetApk(); pendingApk = UpdateCache.basename(target);
         setBusy(true); status.setText(t("正在下载…离开此页将取消未完成的下载。", "Downloading… Leaving this page cancels unfinished downloads."));
         new Thread(new Runnable() { @Override public void run() {
             try {
@@ -91,9 +154,10 @@ public class UpdateActivity extends BaseActivity {
                     if (alive() && request == task) status.setText(t("正在下载：", "Downloading: ") + (done * 100 / total) + "%\n"
                             + t("离开此页将取消。", "Leave this page to cancel."));
                 } }); } });
-                ui.post(new Runnable() { @Override public void run() { if (!alive() || request != task) return; apk = downloaded; setBusy(false);
-                    download.setVisibility(View.GONE); install.setVisibility(View.VISIBLE);
-                    status.setText(t("下载完成；SHA-256、包名、版本及原签名校验通过。点击安装后仍需系统确认。", "Downloaded; SHA-256, package, version and original signature verified. Android will ask you to confirm installation."));
+                ui.post(new Runnable() { @Override public void run() {
+                    if (!alive() || request != task) return;
+                    try { holdApk(downloaded.getName()); apk = downloaded; showReady(); }
+                    catch (Exception e) { error(task, e); }
                 } });
             } catch (Exception e) { error(task, e); }
             finally { task.cancel(); }
@@ -105,29 +169,34 @@ public class UpdateActivity extends BaseActivity {
     }
     private void install() {
         if (busy || apk == null || release == null) return;
+        verifyCached(true); // Only this explicit tap may eventually open Android's confirmation UI.
+    }
+    private void launchInstaller() {
+        if (!alive() || isAppearanceRecreating() || apk == null) return;
         try {
-            // Re-check immediately before granting the installer access. File stays in private cache.
-            SignatureGuard.verifyUpdate(this, apk, release);
             if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
                 waitingPermission = true;
-                status.setText(t("请允许本应用安装更新，返回后继续系统安装确认。", "Allow this app to install updates, then return for Android's confirmation."));
+                status.setText(t("请允许本应用安装更新，返回后再次点击安装。", "Allow this app to install updates, then return and tap Install again."));
                 startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()))); return;
             }
+            UpdateCache.installing(apk);
             Uri uri = new Uri.Builder().scheme("content").authority(getPackageName() + ".updates").appendPath(apk.getName()).build();
             Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.setClipData(android.content.ClipData.newRawUri("Qinglian update", uri));
             startActivity(intent);
-        } catch (Exception e) { status.setText(t("无法安装：", "Cannot install: ") + L10n.error(this, e)); }
+        } catch (Exception e) { waitingPermission = false; status.setText(t("无法安装：", "Cannot install: ") + L10n.error(this, e)); }
     }
     @Override protected void onResume() {
         super.onResume();
+        if (isAppearanceRecreating()) return;
         if (waitingPermission) { waitingPermission = false;
-            if (Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()) install();
-            else status.setText(t("未允许安装；你可以再次点击安装。", "Installation permission was not granted; tap Install to retry."));
+            if (!busy) status.setText(Build.VERSION.SDK_INT >= 26 && getPackageManager().canRequestPackageInstalls()
+                    ? t("安装权限已允许；请再次点击安装。", "Installation permission granted; tap Install again.")
+                    : t("未允许安装；你可以再次点击安装。", "Installation permission was not granted; tap Install to retry."));
         }
     }
     @Override protected void onDestroy() {
-        if (request != null) request.cancel(); ui.removeCallbacksAndMessages(null); super.onDestroy();
+        if (request != null) request.cancel(); ui.removeCallbacksAndMessages(null); forgetApk(); super.onDestroy();
     }
 }

@@ -1,0 +1,1 @@
+package io.ghx.vpn.core; public class Session {public static void invalidate(){throw new AssertionError("unexpected session action");}}

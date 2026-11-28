@@ -33,6 +33,11 @@ public final class LogReader {
     /** Best effort, not a guarantee. The UI always warns before sharing. */
     public static String redact(String text) {
         return text.replaceAll("(?i)(?:https?|vmess|vless|trojan|ssr?|hy2|hysteria2|tuic|socks5?|ql)://[^\\s\\\"<>]+", "[链接已隐藏]")
-                .replaceAll("(?i)((?:password|passwd|secret|token|authorization|uuid)\\s*[:=]\\s*)[^\\s,}]+", "$1[已隐藏]");
+                // Match a whole quoted value (including escapes), or the entire auth scheme + credential.
+                // End-of-line also closes a truncated quoted value: never expose its remaining words.
+                .replaceAll("(?i)([\"']?(?:password|passwd|secret|token|authorization|uuid)[\"']?[ \\t]*[:=][ \\t]*)"
+                        + "(?:\"(?:\\\\[^\\r\\n]|[^\"\\\\\\r\\n])*+(?:\"|\\\\?(?=\\r|\\n|$))"
+                        + "|'(?:\\\\[^\\r\\n]|[^'\\\\\\r\\n])*+(?:'|\\\\?(?=\\r|\\n|$))"
+                        + "|(?:Bearer|Basic)[ \\t]+[^\\s,}]+|[^\\s,}]+)", "$1[已隐藏]");
     }
 }

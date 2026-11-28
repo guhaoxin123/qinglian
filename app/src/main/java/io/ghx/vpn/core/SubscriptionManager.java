@@ -18,6 +18,9 @@ public final class SubscriptionManager {
 
     private final Context ctx;
     private final ProfileStore store;
+    /** Shared request ordering across manual/background managers; guarded by ProfileStore.LOCK. */
+    private static long refreshSequence;
+    private static final java.util.Map<String, Long> REFRESHES = new java.util.HashMap<String, Long>();
 
     public SubscriptionManager(Context ctx) {
         this.ctx = ctx.getApplicationContext();
@@ -35,6 +38,12 @@ public final class SubscriptionManager {
     /** 拉取并验证后更新 p；调用 update(p) 才持久化。Clash 返回 -1（内核解析）。 */
     public int refresh(Profile p) throws IOException {
         if (!p.hasUrl()) throw new IOException("没有订阅地址");
+        synchronized (ProfileStore.LOCK) {
+            Profile current = store.byId(store.load(), p.id);
+            if (current == null || !sameUrl(current.url, p.url)) throw new IOException("配置已删除或地址已更改");
+            p.refreshTicket = ++refreshSequence;
+            REFRESHES.put(p.id, p.refreshTicket);
+        }
         Downloader.Result r = Downloader.fetch(p.url);
         String raw = r.body == null ? "" : r.body;
         if (raw.trim().length() == 0) throw new IOException("订阅内容为空");
@@ -72,8 +81,14 @@ public final class SubscriptionManager {
             }
             throw new IllegalArgumentException("无法识别的订阅格式");
         }
-        // The lightweight Clash reader cannot validate all YAML/provider configurations.
-        if (fmt == SubParser.FMT_CLASH) return -1;
+        // Apply the same conservative structural checks as file import, not a full YAML validator.
+        if (fmt == SubParser.FMT_CLASH) {
+            try { DocumentImport.inspect(text); }
+            catch (DocumentImport.ImportException e) {
+                throw new IllegalArgumentException("Clash 配置内容无效（" + e.problem.name() + "）", e);
+            }
+            return -1; // Advanced/provider-backed counts still belong to the core.
+        }
         int count = SubParser.parseNodes(text, fmt).size();
         if (count == 0) throw new IllegalArgumentException("订阅没有可解析的节点");
         return count;
@@ -128,6 +143,7 @@ public final class SubscriptionManager {
             p.lastError = null;
             all.add(p);
             store.save(all);
+            AutoUpdate.schedule(ctx);
             Log.i("订阅已从链接导入 " + p.name + " 格式=" + fmt + " 自动=" + p.autoUpdateMinutes + "m");
             return p;
         }
@@ -139,7 +155,12 @@ public final class SubscriptionManager {
             List<Profile> all = store.load();
             Profile current = store.byId(all, p.id);
             if (current == null) return; // Deleted while downloading: do not recreate it.
-            if (!sameUrl(current.url, p.url) || p.updatedAt < current.updatedAt) return;
+            Long latest = REFRESHES.get(p.id);
+            if (p.refreshTicket != 0 && (latest == null || latest.longValue() != p.refreshTicket)) return;
+            if (p.refreshTicket == 0 && latest != null) return;
+            if (!sameUrl(current.url, p.url)) return;
+            if (p.refreshTicket != 0) REFRESHES.remove(p.id);
+            else if (p.updatedAt < current.updatedAt) return;
             if (p.lastError == null) {
                 try {
                     // Reapply the latest marker under the store lock: conversion may race a download.
@@ -156,6 +177,7 @@ public final class SubscriptionManager {
                 }
             } else current.lastError = p.lastError;
             store.save(all);
+            AutoUpdate.schedule(ctx);
         }
     }
 
@@ -171,6 +193,7 @@ public final class SubscriptionManager {
             if (current == null) return;
             current.autoUpdateMinutes = Interval.normalize(minutes);
             store.save(all);
+            AutoUpdate.schedule(ctx);
         }
     }
 
@@ -193,6 +216,8 @@ public final class SubscriptionManager {
                 if (all.get(i).id.equals(id)) all.remove(i);
             }
             store.save(all);
+            REFRESHES.remove(id);
+            AutoUpdate.schedule(ctx);
         }
     }
 

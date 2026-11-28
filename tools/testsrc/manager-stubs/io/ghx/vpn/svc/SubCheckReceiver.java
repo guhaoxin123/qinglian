@@ -1,0 +1,1 @@
+package io.ghx.vpn.svc; public class SubCheckReceiver {}

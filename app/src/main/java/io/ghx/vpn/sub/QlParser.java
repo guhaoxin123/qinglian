@@ -146,11 +146,24 @@ public final class QlParser {
         int b = 0;
         int e = s.length();
         while (b < e && isSeparator(s.charAt(b))) b++;
-        while (e > b && isSeparator(s.charAt(e - 1))) e--;
+        int squareBalance = 0;
+        for (int i = b; i < e; i++) {
+            if (s.charAt(i) == '[') squareBalance++;
+            else if (s.charAt(i) == ']') squareBalance--;
+        }
+        while (e > b && isSeparator(s.charAt(e - 1))) {
+            char last = s.charAt(e - 1);
+            // Keep a matched ']' (notably an IPv6 authority without an explicit port).
+            // Only unmatched surrounding brackets belong to the presentation wrapper.
+            if (last == ']' && squareBalance >= 0) break;
+            if (last == ']') squareBalance++;
+            else if (last == '[') squareBalance--;
+            e--;
+        }
         return s.substring(b, e);
     }
 
-    /** 分隔符只在首尾丢弃：base64 的 =、URL 的 - _ / : ? & # % 都不在其中。 */
+    /** 分隔符只在首尾丢弃：= - _ / : ? & # % 不在其中；匹配的 ] 另行保留。 */
     private static boolean isSeparator(char c) {
         if (c <= ' ') return true;
         switch (c) {

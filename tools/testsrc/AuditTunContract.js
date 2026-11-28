@@ -56,8 +56,8 @@ check(subs.includes('manager.addRemote(name, url, text, autoUpdateMinutes)'), 'U
 check(subs.includes('manager.addRaw(name, text, 0)'), 'file and paste import stay one-shot');
 check(!/addRemote[\s\S]{0,400}(select\(|TunnelService|Session\.)/.test(mgr), 'saving a URL import never selects or starts the VPN');
 const manifest = fs.readFileSync(path.join(root, 'app/src/main/AndroidManifest.xml'), 'utf8');
-check(manifest.includes("android:versionName=\"2.1\""), "versionName is 2.1");
-check(manifest.includes("android:versionCode=\"21\""), "versionCode is 21");
+check(manifest.includes("android:versionName=\"2.2\""), "versionName is 2.2");
+check(manifest.includes("android:versionCode=\"22\""), "versionCode is 22");
 const traffic = src('io/ghx/vpn/ui/TrafficPanel.java');
 const stats = src('io/ghx/vpn/core/TrafficStats.java');
 check(stats.includes('Proxy.NO_PROXY'), 'stats bypass proxy');
@@ -160,4 +160,23 @@ const convert = mgr.split('public void convertToQl(String id)')[1].split('public
 check(!/Session|select\(|refresh\(|Downloader|TunnelService/.test(convert), 'conversion never changes selection or runs network/VPN');
 check(mgr.includes('current.contentForRefresh(p.content)'), 'concurrent refresh preserves latest ql marker');
 check(settings.includes('3674825559@qq.com') && settings.includes('UpdatePolicy.HOME'), 'feedback email and author home');
+// 2.2: integration contracts, distinct from the JVM helper/fake-environment tests.
+const selectBody = session.split('public static boolean select(')[1].split('/** 内核是否')[0];
+const reloadBody = main.split('private void reloadIfRunning()')[1].split('private void toggle()')[0];
+check(selectBody.includes('SessionTasks.runWhenRunning(CORE_LOCK'), 'late startup selection uses post-lock running guard');
+check(!selectBody.includes('if (!isKernelRunning()) return'), 'startup selections are not dropped before queueing');
+check(selectBody.includes('if (!name.equals(selected)) return;'), 'superseded selection workers cannot apply an old choice');
+check(reloadBody.includes('SessionTasks.admitReload(TunnelService.isRunning(), TunnelService.isStarting())'), 'mode reload admitted during startup');
+check(reloadBody.includes('SessionTasks.runWhenRunning(Session.CORE_LOCK') && reloadBody.includes('TunnelService.isRunning() && Session.isKernelRunning()'), 'reload rechecks service/core after lock');
+const resumeBody = main.split('protected void onResume()')[1].split('@Override')[0];
+check(resumeBody.includes('AppUpdates.autoCheck(this)'), 'daily app update checked on resume, not only creation');
+check(mgr.indexOf('REFRESHES.put(p.id, p.refreshTicket)') < mgr.indexOf('Downloader.fetch(p.url)'), 'refresh order assigned before network completion');
+check(mgr.includes('latest.longValue() != p.refreshTicket'), 'stale refresh commits refused');
+check(mgr.includes('DocumentImport.inspect(text)'), 'remote Clash content shares structural import validation');
+check((mgr.match(/AutoUpdate\.schedule\(ctx\)/g)||[]).length >= 4, 'import/settings/update/removal reschedule alarms');
+check(auto.split('public static void schedule(Context ctx)')[1].split('private static long nextDueAt')[0].includes('synchronized (ProfileStore.LOCK)'), 'alarm snapshot and commit serialize with profile saves');
+check(updateUi.includes('onSaveInstanceState(Bundle state)') && updateUi.includes('UpdateCache.restoreRelease('), 'update UI restores constrained metadata');
+check(updateUi.includes('verifyCached(false)') && updateUi.includes('verifyCached(true)'), 'restore verifies but only explicit install tap launches installer');
+check(updates.includes('UpdateCache.reserve(dir, release)') && updates.includes('slot.publish()'), 'downloads use bounded atomic cache');
+check(updates.includes('UpdateCache.verifyBytes(file, release)') && updates.includes('SignatureGuard.verifyUpdate(ctx, file, release)'), 'cached APK still verifies bytes and original signature');
 console.log('AuditTunContract: ' + count + ' checks passed; no VPN/native code executed');
